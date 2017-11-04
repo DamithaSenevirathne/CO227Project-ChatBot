@@ -1,7 +1,10 @@
 # CO227Project-ChatBot
-Informational chatbots for department students and staff
+## Informational chatbots for department students and staff
+
 Product Owner : Z. Maraikar
+
 SCRUM Master : Ms. Nimali Kularathne
+
 Team : E/14/262 , E/14/305 , E/14/337
 
 ### by Mr. Ziyan Maraikar
