@@ -4,6 +4,8 @@
 
 https://botpress.io/docs/starting/setup.html
 
+https://botpress.io/docs/foundamentals/events.html#receive
+
 ### 02. api.ai (https://dialogflow.com)
 
 
