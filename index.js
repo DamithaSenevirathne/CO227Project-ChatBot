@@ -243,7 +243,7 @@ app.get('/db-create-tables', function (request, response) {
 
     console.log('===== db_create tables =====');
 	
-	var sqlstatement=fs.readFileSync('sql-create-tables.txt', 'utf8');//blocking read function
+	var sqlstatement=fs.readFileSync('db_related/schema/sql-create-tables.txt', 'utf8');//blocking read function
 	
 	//database instance
     client.query(
