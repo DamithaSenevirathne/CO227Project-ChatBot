@@ -49,3 +49,4 @@ create table table_current_semester_shortsem5(
 	fieldOfStudy	varchar(10),
 	courseID		varchar(10)
 );
+
