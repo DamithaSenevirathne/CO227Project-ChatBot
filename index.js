@@ -7,7 +7,7 @@ var express = require('express') //a minimal and flexible Node.js web applicatio
 var http = require('http');
 var request = require('request');
 
-var fs=require('fs');//to read files
+var fs = require('fs'); //to read files
 
 //nodejs server online port
 const PORT = process.env.PORT || 5000;
@@ -25,7 +25,6 @@ const ACTION_WELCOME = '';
 //postgres database url
 const DATABASE_URL = 'postgres://dcfvnzofeempgk:2c027d6f6788c5b82e4cbb9e9d388254211a61156d1fc1e35312c8c5885958aa@ec2-107-22-167-179.compute-1.amazonaws.com:5432/d3teg1g8u2anm';
 
-
 var app = express(); //getting an express instance , app?
 
 const { Client } = require('pg');
@@ -35,7 +34,6 @@ const client = new Client({
   connectionString: DATABASE_URL,
   ssl: true,
 });
-
 
 var facebookID = '';
 var firstName = '';
@@ -47,8 +45,10 @@ var semester = 0;
 client.connect(); //connecting to the database? client database instance
 
 app.use(bodyParser.json());
+app.set('view engine', 'pug');    // set a view engine to show reults in web browser
+app.get('/', (req, res) => res.render('pages/index'));
 
-			//incomming request, resulting response
+//incomming request, resulting response
 app.post('/', function(request, res){
 
   let action = request.body.result.action; //getting the value of the action of incomming request
@@ -56,8 +56,8 @@ app.post('/', function(request, res){
 
   if(action == ACTION_GETTING_STARTED){
     facebookID = request.body.originalRequest.data.sender.id;//the facebook id
-	
-	//getFacebookData function was implemented in this js file.
+
+	  //getFacebookData function was implemented in this js file.
     getFacebookData(facebookID, function(err, data){
       firstName = data.first_name; //first name, from the facebook account
       lastName = data.last_name; //last name, from the facebook account
@@ -192,20 +192,36 @@ function getFacebookData(facebookId, callback) {
 }
 
 // function to check current details in userInfo
-//here when user, requests <host>/db this function triggers.
-app.get('/db', function (request, response) {
+// here when user, requests <host>/users this function triggers.
+app.get('/users', function (request, response) {
 
     console.log('===== db_query =====');
-	
-	//database instance
-    client.query('SELECT * FROM userInfo', function(err, result) {
+
+    var userList = [];
+
+    client.query('SELECT * FROM userStudentFeels', function(err, result) {
       if (err){
         console.error(err); response.send("Error " + err);
       }else{
-        console.log(result.rows);
-      }
-    });
+        //console.log(result.rows);
+	  		for (var i = 0; i < result.rows.length; i++) {
+
+		  		var user = {
+		  			'eNumber':result.rows[i].enumber,
+		  			'firstName':result.rows[i].firstname,
+		  			'lastName':result.rows[i].lastname,
+		  			'eMail':result.rows[i].email,
+            'fieldOfStudy':result.rows[i].fieldofstudy,
+            'semester':result.rows[i].semester
+		  		}
+		  		userList.push(user);
+	  	}
+	  	response.render('pages/userInfo', {"userList": userList});  // use the userInfo.pug file to show data
+    }
+  });
 });
+
+
 
 /*
 function checkENumber(givenNumber, callback) {
@@ -228,7 +244,7 @@ function checkENumber(givenNumber, callback) {
 app.get('/db-create-tables-test', function (request, response) {
 
     console.log('===== db_query =====');
-	
+
 	//database instance
     client.query('SELECT * FROM table_current_semester_year1', function(err, result) {
       if (err){
@@ -242,13 +258,13 @@ app.get('/db-create-tables-test', function (request, response) {
 app.get('/db-create-tables', function (request, response) {
 
     console.log('===== db_create tables =====');
-	
+
 	var sqlstatement=fs.readFileSync('db_related/schema/sql-create-tables.txt', 'utf8');//blocking read function
-	
+
 	//database instance
     client.query(
 		sqlstatement,
-		
+
 		function(err, result) {
 		  if (err){
 			console.error(err); response.send("Error " + err);
