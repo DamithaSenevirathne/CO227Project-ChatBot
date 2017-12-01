@@ -61,14 +61,15 @@ app.post('/', function(request, res){
 
 	  //getFacebookData function was implemented in this js file.
     getFacebookData(facebookID, function(err, data){
-      firstName = data.first_name; //first name, from the facebook account
-      lastName = data.last_name; //last name, from the facebook account
+      firstName = data.first_name;  //first name, from the facebook account      
       var firstMsg = `Hi ${firstName}`;
-      res.send(JSON.stringify({
-                    "messages": [{"type": 0, "speech": firstMsg},
-                                 {"type": 0, "speech": "I'm a Informational Chat bot for Pera Efac"},
-                                 {"type": 0, "speech": "To get started, tell me your registration number"}]
-      }))
+      res.send(JSON.stringify({'messages':
+                      [{"type": 0, "speech": firstMsg},
+                       {"type": 0, "speech": "I'm a Informational Chat bot for Pera Efac"},
+                       {'title': 'To get started, tell me your role',
+                        'replies': ['Lecturer', 'Instructor', 'Student'], 'type': 2}]}
+
+      ))
     });
   }
   /*
@@ -201,7 +202,7 @@ app.get('/users', function (request, response) {
 
     var userList = [];
 
-    client.query('SELECT * FROM userStudentFeels', function(err, result) {
+    client.query('SELECT * FROM table_user_student_feels', function(err, result) {
       if (err){
         console.error(err); response.send("Error " + err);
       }else{
@@ -209,10 +210,10 @@ app.get('/users', function (request, response) {
 	  		for (var i = 0; i < result.rows.length; i++) {
 
 		  		var user = {
-		  			'eNumber':result.rows[i].enumber,
+		  			'eNumber':result.rows[i].registrationnumber,
 		  			'firstName':result.rows[i].firstname,
 		  			'lastName':result.rows[i].lastname,
-		  			'eMail':result.rows[i].email,
+		  			'eMail':result.rows[i]. primaryemail,
             'fieldOfStudy':result.rows[i].fieldofstudy,
             'semester':result.rows[i].semester
 		  		}
@@ -265,11 +266,11 @@ app.get('/db-populate', function (request, response) {
     console.log('===== db_population =====');
 	var sql_file= request.query.sql_file;//$_GET["sql_file"]
 	var sqlstatement=fs.readFileSync('db_related/generation/'+sql_file, 'utf8');//blocking read function
-	
+
 	//database instance
     client.query(
 		sqlstatement,
-		
+
 		function(err, result) {
 		  if (err){
 			console.error(err); response.send("Error " + err);
@@ -284,11 +285,11 @@ app.get('/db-populate', function (request, response) {
 app.get('/db-create-tables', function (request, response) {
     console.log('===== db_create tables =====');
 	var sqlstatement=fs.readFileSync('db_related/schema/sql-create-tables.txt', 'utf8');//blocking read function
-	
+
 	//database instance
     client.query(
 		sqlstatement,
-		
+
 		function(err, result) {
 		  if (err){
 			console.error(err); response.send("Error " + err);
