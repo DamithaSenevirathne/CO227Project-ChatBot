@@ -29,6 +29,5 @@ https://apps.worldwritable.com/tutorials/chatbot/
 https://github.com/chatbotimporved/chatbot
 
 ### milestones
-01. 
-### change log
-*
+
+website : https://chandimab.github.io/projects/co227-project-chatbot
