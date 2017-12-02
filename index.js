@@ -383,7 +383,7 @@ app.get('/db-populate', function (request, response) {
 
 //database schema generation
 app.get('/db-create-tables', function (request, response) {
-    console.log('===== db_create tables =====');
+  console.log('===== db_create tables =====');
 	var sqlstatement=fs.readFileSync('db_related/schema/sql-create-tables.txt', 'utf8');//blocking read function
 
 	//database instance
