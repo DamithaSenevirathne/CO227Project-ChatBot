@@ -1,6 +1,54 @@
 
 // https://vast-peak-63221.herokuapp.com/
 
+//-------------------------------------------------------------------------------------------------------[EMAIL HANDLING-START]---
+
+var current_verification_code='';
+
+var nodemailer = require('nodemailer'); //get instance
+
+var transporter = nodemailer.createTransport({ //setting email account details
+  service: 'gmail',
+  auth: {
+    user: '#####',
+    pass: '#####'
+  }
+});
+
+function verification_code_generate(){
+	current_verification_code='1234';
+	return current_verification_code;
+}
+
+function get_mail_send_verification(email_to,verification_code){
+	var mail_send_verification = {
+	  from: 'perachatbot@gmail@gmail.com',
+	  to: email_to,
+	  subject: 'PeraChatBot - Facebook Verification!',
+	  text: 'Please click this link to verify your request : https://vast-peak-63221.herokuapp.com/verify-facebook?verification_code='+verification_code
+	};
+	return mail_send_verification;
+}
+
+function email_send_verification_code(email_to){
+	transporter.sendMail(get_mail_send_verification(email_to,verification_code_generate()), function(error, info){
+	  if (error) {
+		console.log(error);
+	  } else {
+		console.log('Email sent: ' + info.response);
+	  }
+	}); 
+}
+
+/**
+	to send verification email
+	email_send_verification_code('chandi2398@gmail.com');
+**/
+
+//-------------------------------------------------------------------------------------------------------[EMAIL HANDLING-OVER]---
+
+
+
 var express = require('express') //a minimal and flexible Node.js web application framework that provides a robust set of features to develop web and mobile applications.
 , bodyParser = require('body-parser'); //this is a node.js middleware for handling JSON, Raw, Text and URL encoded form data.
 
@@ -432,3 +480,17 @@ function checkENumber(givenNumber, callback) {
   callback(err, data);
 }
 */
+
+/**
+	/verify?mailto=dest@email.com
+**/
+app.get(
+	'/verify',
+	function (request, response) {
+		console.log('===== send verification_code =====');
+		var send_email_address= request.query.emailto;//$_GET["emailto"]
+		email_send_verification_code(send_email_address);
+	}
+);
+
+
