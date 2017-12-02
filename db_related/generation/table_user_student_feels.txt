@@ -1,0 +1,4 @@
+insert into table_user_student_feels(registrationNumber, firstName, lastName, primaryEmail, fieldOfStudy, semester)
+values('e14305', 'Chandima', 'Samarasinghe','chandi2398@gmail.com','com','4'),
+      ('e14337', 'Yuvini', 'Sumanasekera','yuvini.s06@gmail.com','com','4'),
+	  ('e14262', 'Sanoj', 'Punchihewa','sanoj.punchihewa@gmail.com','com','4');

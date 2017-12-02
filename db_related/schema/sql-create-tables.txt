@@ -1,4 +1,60 @@
--- dropping previous tables
+-- dropping previous user tables ----------------------------------------------------------------------
+drop table if exists table_user_student_feels;
+drop table if exists table_user_map_chatClients;
+drop table if exists table_user_student_registeredCourse;
+
+
+
+
+-- creating user tables
+create table table_user_student_feels(
+	registrationNumber	varchar(6),
+	firstName			varchar(100),
+	lastName			varchar(200),
+	primaryEmail		varchar(100),
+	fieldOfStudy		varchar(10),
+	semester			int
+);
+
+create table table_user_map_chatClients(
+	registrationNumber	varchar(6),
+	facebookID			text,
+	whatsappID			text,
+	viberID				text,
+	twitterID			text
+);
+
+
+create table table_user_student_registeredCourse(
+	registrationNumber	varchar(6),
+	courseID			varchar(10)
+);
+
+
+-- dropping previous course tables ----------------------------------------------------------------------
+drop table if exists table_course;
+drop table if exists table_course_resourcePerson;
+
+
+-- creating course tables
+
+create table table_course(
+	courseID			varchar(10),
+	fieldOfStudy		varchar(10),
+	startDate			date,
+	endDate				date
+);
+
+create table table_course_resourcePerson(
+	courseID			varchar(10),
+	resourcePersonType	varchar(10),
+	resourcePersonID	varchar(10)
+);
+
+
+
+
+-- dropping previous time tables ----------------------------------------------------------------------
 drop table if exists table_current_semester_year1;
 drop table if exists table_current_semester_year2;
 drop table if exists table_current_semester_year3;

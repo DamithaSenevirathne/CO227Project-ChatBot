@@ -1,0 +1,12 @@
+insert into table_current_semester_shortsem5(timetableDate, startTime, endTime, fieldOfStudy, courseID)
+values('Monday','8:00','9:50','com','EF524'),
+('Tuesday','13:00','14:50','com' ,'EF528'),
+('Wednesday' ,'15:00','18:00','com','EF509'),
+('Saturday','8:00','10:00','com','EF501'),
+('Friday','13:00','14:50','com','EF509'),
+('Saturday','15:10','17:00','com','EF509'),
+('Thrusday','13:00','14:50','com','EF501'),
+('Thrusday','15:10','17:00','com','EF501'),
+('Wednesday' ,'9:00','10:00','com','CO227'),
+('Monday','10:10','12:00','com','EF524'),
+('Tuesday','13:00','14:50','com','EF525');
