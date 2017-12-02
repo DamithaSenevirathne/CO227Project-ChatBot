@@ -1,0 +1,22 @@
+html
+	head
+		title= 'Time Tables'
+		link(rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons")
+		link(rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css")
+		script(src="https://code.getmdl.io/1.3.0/material.min.js")
+		body
+		h3= 'Short Semester One Time Table'
+	table
+		tr
+			th= 'Day'
+			th= 'Start Time'
+			th= 'End Time'
+			th= 'Field Of Study'
+			th= 'Course ID'
+		for course in timeTableList
+			tr
+				td= course.day
+				td= course.start
+				td= course.end
+				td= course.fos
+				td= course.id

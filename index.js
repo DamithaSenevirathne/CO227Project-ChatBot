@@ -24,7 +24,9 @@ const ACTION_ADD_USER_TO_DB = 'action_add_user';
 const ACTION_CHECK_SEMESTER = 'action_check_semester';
 const ACTION_WELCOME = '';
 
-const ACTION_QUERY_BY_TIME = 'action_queryTimeTable_byTime';
+// Time Table query actions
+const ACTION_TIMETABLE_QUERY_BY_TIME_1 = 'action_queryTimeTable_byTime';
+const ACTION_TIMETABLE_QUERY_BY_TIME_NEXT = 'action_queryTimeTable_byTime_next';
 
 //postgres database url
 const DATABASE_URL = 'postgres://dcfvnzofeempgk:2c027d6f6788c5b82e4cbb9e9d388254211a61156d1fc1e35312c8c5885958aa@ec2-107-22-167-179.compute-1.amazonaws.com:5432/d3teg1g8u2anm';
@@ -38,6 +40,9 @@ const MAP_SEMESTER_TO_DB = [
    	"table_current_semester_shortsem5",
    	"table_current_semester_shortsem6"
 ];
+
+// Time variables
+var current_time,  timetable_query_previous_starttime, timetable_query_previous_endtime, table, date;
 
 var app = express(); //getting an express instance , app?
 
@@ -171,15 +176,28 @@ app.post('/', function(request, res){
 
   }
   */
-  // Need to query the DB using the time
-  if(action == ACTION_QUERY_BY_TIME){
+
+  /*
+      =============================================================================
+      Actions used to Query TimeTables using only the time
+      time variables are defined GLOBAL to all the time related Actions
+      inorder to use in user asks (next and previous) followed by first query
+      =============================================================================
+  */
+
+  // Need to query the DB using the time for the first time
+  if(action == ACTION_TIMETABLE_QUERY_BY_TIME_1){
 
     let facebookID = request.body.originalRequest.data.sender.id;       // facebook id
-    let time = request.body.result.parameters.time;                     // time user asking
+    current_time = request.body.result.parameters.time;                     // time user asking
 
-    queryByTime(time, facebookID, function (err, data) {
+    queryByTime(current_time, facebookID, function (err, data) {
       if(!err){
-        res.send(JSON.stringify({'messages': [{"type": 0, "speech": data}]}))
+        // Extract values from data and send to user + update our reference values
+        var msg = `You have ${data.courseid} from ${data.starttime} to ${data.endtime}`;
+        timetable_query_previous_endtime = data.endtime;
+        timetable_query_previous_starttime = data.starttime;
+        res.send(JSON.stringify({'messages': [{"type": 0, "speech": msg}]}))
       }else {
         res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
       }
@@ -187,6 +205,26 @@ app.post('/', function(request, res){
     });
 
   }
+  // Need to query the DB using the time for the second time (A next followed by 1st query)
+  if(action == ACTION_TIMETABLE_QUERY_BY_TIME_NEXT){
+
+    let facebookID = request.body.originalRequest.data.sender.id;       // facebook id
+    console.log(timetable_query_previous_endtime);
+    queryByTimeNext(timetable_query_previous_endtime, facebookID, function (err, data) {
+      if(!err){
+        // Extract values from data and send to user + update our reference values
+        var msg = `You have ${data.courseid} from ${data.starttime} to ${data.endtime}`;
+        timetable_query_previous_endtime = data.endtime;
+        timetable_query_previous_starttime = data.starttime;
+        res.send(JSON.stringify({'messages': [{"type": 0, "speech": msg}]}))
+      }else {
+        res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
+      }
+
+    });
+  }
+
+
 
 });
 
@@ -217,21 +255,22 @@ function queryByTime(time, facebookId, callback){
           // If no Error get fieldOfStudy, Semester and query the respective table
           let fieldOfStudy = result.rows[0].fieldofstudy;
           let semester = result.rows[0].semester;
-          let table = MAP_SEMESTER_TO_DB[semester-1];   // Since indexing is done from 0
+          table = MAP_SEMESTER_TO_DB[semester-1];   // Since indexing is done from 0
           console.log('Table to Query = ' + table);
-          var date = 'monday';
+          date = 'Monday';
           // get the day of the week to query the DB
           // getWeekDay(function (data) {
 	        //    date = data;
           // });
-//
-          query = `Select courseid, starttime, endtime FROM ${table} WHERE timetabledate='${date}' AND starttime<='${time}' AND endtime>='${time}';`;
+
+          query = `Select * FROM ${table} WHERE timetabledate='${date}' AND starttime<='${time}' AND endtime>='${time}';`;
 
           client.query(query, function(err, result) {
 
             if (!err && result.rows.length > 0){
               // If no Error get courseId, startTime, endTime and send back to the user
-              data = result;
+              console.log(result.rows);
+              data = result.rows[0];
               callback(error, data);
 
             }else {
@@ -251,6 +290,30 @@ function queryByTime(time, facebookId, callback){
       callback(error, data);
     }
 
+  });
+}
+
+  //function to query the DB by time(user say next followed by 1st query)  e.g -> What do i have at 2pm ? Next ?
+function queryByTimeNext(time, facebookId, callback){
+
+  console.log('======= Query By Time Next =========');
+
+  var error, data;
+
+  query = `Select * FROM ${table} WHERE timetabledate='${date}' AND starttime>='${time}' order by starttime;`;
+
+  client.query(query, function(err, result) {
+
+    if (!err && result.rows.length > 0){
+      // If no Error get courseId, startTime, endTime and send back to the user
+      console.log(result.rows);
+      data = result.rows[0];
+      callback(error, data);
+
+    }else {
+      error = err || `That's all for ${date}`;
+      callback(error, data);
+    }
   });
 
 }
@@ -324,6 +387,35 @@ app.get('/users', function (request, response) {
   });
 });
 
+
+// function to check short semester time table
+// here when user, requests <host>/shortSem this function triggers.
+app.get('/shortSem', function (request, response) {
+
+    console.log('===== db_query =====');
+
+    var timeTableList = [];
+
+    client.query('SELECT * FROM table_current_semester_shortsem5', function(err, result) {
+      if (err){
+        console.error(err); response.send("Error " + err);
+      }else{
+        //console.log(result.rows);
+	  		for (var i = 0; i < result.rows.length; i++) {
+
+		  		var course = {
+		  			'day':result.rows[i].timetabledate,
+		  			'start':result.rows[i].starttime,
+		  			'end':result.rows[i].endtime,
+		  			'fos':result.rows[i].fieldofstudy,
+            'id':result.rows[i].courseid
+		  		}
+		  		timeTableList.push(course);
+	  	}
+	  	response.render('pages/shortSem', {"timeTableList": timeTableList});  // use the shortSem.pug file to show data
+    }
+  });
+});
 
 
 /*
