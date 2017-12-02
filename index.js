@@ -24,8 +24,20 @@ const ACTION_ADD_USER_TO_DB = 'action_add_user';
 const ACTION_CHECK_SEMESTER = 'action_check_semester';
 const ACTION_WELCOME = '';
 
+const ACTION_QUERY_BY_TIME = 'action_queryTimeTable_byTime';
+
 //postgres database url
 const DATABASE_URL = 'postgres://dcfvnzofeempgk:2c027d6f6788c5b82e4cbb9e9d388254211a61156d1fc1e35312c8c5885958aa@ec2-107-22-167-179.compute-1.amazonaws.com:5432/d3teg1g8u2anm';
+
+// Map of Semesters to the DB Tables
+const MAP_SEMESTER_TO_DB = [
+  	"table_current_semester_year1",
+ 	  "table_current_semester_year2",
+   	"table_current_semester_year3",
+   	"table_current_semester_year4",
+   	"table_current_semester_shortsem5",
+   	"table_current_semester_shortsem6"
+];
 
 var app = express(); //getting an express instance , app?
 
@@ -36,13 +48,6 @@ const client = new Client({
   connectionString: DATABASE_URL,
   ssl: true,
 });
-
-var facebookID = '';
-var firstName = '';
-var lastName = '';
-var eNumber = '';
-var fieldOfStudy = '';
-var semester = 0;
 
 client.connect(); //connecting to the database? client database instance
 
@@ -57,11 +62,11 @@ app.post('/', function(request, res){
   console.log(action);
 
   if(action == ACTION_GETTING_STARTED){
-    facebookID = request.body.originalRequest.data.sender.id;//the facebook id
-
+    var facebookID = request.body.originalRequest.data.sender.id;//the facebook id
+    console.log(facebookID);
 	  //getFacebookData function was implemented in this js file.
     getFacebookData(facebookID, function(err, data){
-      firstName = data.first_name;  //first name, from the facebook account      
+      var firstName = data.first_name;  //first name, from the facebook account
       var firstMsg = `Hi ${firstName}`;
       res.send(JSON.stringify({'messages':
                       [{"type": 0, "speech": firstMsg},
@@ -128,7 +133,7 @@ app.post('/', function(request, res){
 
   }
   */
-
+  /*
   if(action == ACTION_ADD_USER_TO_DB){
 
     eNumber = request.body.result.parameters.eNumber;
@@ -149,7 +154,7 @@ app.post('/', function(request, res){
       }
     });
   }
-
+  */
   /*
   if(action == ACTION_WELCOME){
 
@@ -166,12 +171,89 @@ app.post('/', function(request, res){
 
   }
   */
+  // Need to query the DB using the time
+  if(action == ACTION_QUERY_BY_TIME){
+
+    let facebookID = request.body.originalRequest.data.sender.id;       // facebook id
+    let time = request.body.result.parameters.time;                     // time user asking
+
+    queryByTime(time, facebookID, function (err, data) {
+      if(!err){
+        res.send(JSON.stringify({'messages': [{"type": 0, "speech": data}]}))
+      }else {
+        res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
+      }
+
+    });
+
+  }
 
 });
 
 // set the port your listening
 app.listen(PORT);
 console.log('listening to port : ' + PORT);
+
+//function to query the DB by time  e.g -> What do i have at 2pm ?
+function queryByTime(time, facebookId, callback){
+
+  console.log('======= Query By Time =========');
+
+  //console.log(facebookID);
+  // get eNumber with facebookID
+  let query = `Select registrationnumber FROM table_user_map_chatclients WHERE facebookid='${facebookId}';`;
+
+  var error, data;
+
+  client.query(query, function(err, result) {
+    if (!err && result.rows.length > 0){
+      // If no Error get eNumber and query studentInfoTable
+      let eNumber = result.rows[0].registrationnumber;
+      console.log('eNumber = ' + eNumber);
+      query = `Select fieldofstudy, semester FROM table_user_student_feels WHERE registrationnumber='${eNumber}';`;
+
+      client.query(query, function(err, result) {
+        if (!err && result.rows.length > 0){
+          // If no Error get fieldOfStudy, Semester and query the respective table
+          let fieldOfStudy = result.rows[0].fieldofstudy;
+          let semester = result.rows[0].semester;
+          let table = MAP_SEMESTER_TO_DB[semester-1];   // Since indexing is done from 0
+          console.log('Table to Query = ' + table);
+          var date = 'monday';
+          // get the day of the week to query the DB
+          // getWeekDay(function (data) {
+	        //    date = data;
+          // });
+//
+          query = `Select courseid, starttime, endtime FROM ${table} WHERE timetabledate='${date}' AND starttime<='${time}' AND endtime>='${time}';`;
+
+          client.query(query, function(err, result) {
+
+            if (!err && result.rows.length > 0){
+              // If no Error get courseId, startTime, endTime and send back to the user
+              data = result;
+              callback(error, data);
+
+            }else {
+              error = err || `No results found at ${table}`;
+              callback(error, data);
+            }
+          });
+
+        }else {
+          error = err || `No results found at table_user_student_feels`;
+          callback(error, data);
+        }
+      });
+
+    }else {
+      error = err || `No results found at table_user_map_chatclients`;
+      callback(error, data);
+    }
+
+  });
+
+}
 
 // Get user information using the facebookId
 function getFacebookData(facebookId, callback) {
@@ -192,6 +274,24 @@ function getFacebookData(facebookId, callback) {
 
     callback(err, userData);
   });
+}
+
+// function to get the day(Monday, Tuesday,.. of the week)
+function getWeekDay(callback) {
+
+  var weekday=new Array(7);
+  weekday[0]="Monday";
+  weekday[1]="Tuesday";
+  weekday[2]="Wednesday";
+  weekday[3]="Thursday";
+  weekday[4]="Friday";
+  weekday[5]="Saturday";
+  weekday[6]="Sunday";
+
+  var data = weekday[new Date().getDay()-1];
+
+  callback(data);
+
 }
 
 // function to check current details in userInfo
