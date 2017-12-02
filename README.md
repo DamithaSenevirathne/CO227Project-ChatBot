@@ -28,6 +28,6 @@ https://apps.worldwritable.com/tutorials/chatbot/
 
 https://github.com/chatbotimporved/chatbot
 
-### milestones
+### website
 
-website : https://chandimab.github.io/projects/co227-project-chatbot
+https://chandimab.github.io/projects/co227-project-chatbot

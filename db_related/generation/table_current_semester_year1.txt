@@ -1,4 +1,0 @@
-insert into table_current_semester_year1(timetableDate, startTime, endTime, fieldOfStudy, courseID)
-values('monday', '08:00', '12:00','com','co227'),
-      ('tuesday', '08:00', '12:00','com','co227'),
-      ('friday', '08:00', '12:00','com','co227');
