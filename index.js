@@ -11,22 +11,15 @@ const path = require('path')
 
 var fs = require('fs'); //to read files
 
+// to format dates
+var moment = require('moment');
+moment().format();
+
 //nodejs server online port
 const PORT = process.env.PORT || 5000;
 
 //Chatbot facebook page, access token
 const FB_PAGE_ACCESS_TOKEN = 'EAAFLoV6ANvIBADadfOI0WWJ0ZBSd3cAO5Vm5GCpDYrjw4MPKu8OIh5tyv9hwHzoATCQGdM2z2xck4Mmg3kW4V8yzGQVvLCULnNC5nkGn9kLZBrQJZCPGPYZAWAFBlZB0FqBgEUYC7crwJfiQ5MuUEaViBZBzZCDq2TitfieKLuduAZDZD';
-
-//DialogFlow intent actions
-const ACTION_GETTING_STARTED = 'action_getting_started';
-const ACTION_ENUM_CONFIRMED = 'action_eNum_confirmed';
-const ACTION_ADD_USER_TO_DB = 'action_add_user';
-const ACTION_CHECK_SEMESTER = 'action_check_semester';
-const ACTION_WELCOME = '';
-
-// Time Table query actions
-const ACTION_TIMETABLE_QUERY_BY_TIME_1 = 'action_queryTimeTable_byTime';
-const ACTION_TIMETABLE_QUERY_BY_TIME_NEXT = 'action_queryTimeTable_byTime_next';
 
 //postgres database url
 const DATABASE_URL = 'postgres://dcfvnzofeempgk:2c027d6f6788c5b82e4cbb9e9d388254211a61156d1fc1e35312c8c5885958aa@ec2-107-22-167-179.compute-1.amazonaws.com:5432/d3teg1g8u2anm';
@@ -41,8 +34,21 @@ const MAP_SEMESTER_TO_DB = [
    	"table_current_semester_shortsem6"
 ];
 
+// Array to hold the week days
+var weekday=new Array(7);
+weekday[0]="Monday";
+weekday[1]="Tuesday";
+weekday[2]="Wednesday";
+weekday[3]="Thursday";
+weekday[4]="Friday";
+weekday[5]="Saturday";
+weekday[6]="Sunday";
+
 // Time variables
-var current_time,  timetable_query_previous_starttime, timetable_query_previous_endtime, table, date;
+var query_by_time_current_time, query_by_time_previous_starttime, query_by_time_previous_endtime, table_to_query, query_by_time_date;
+
+// Date variables
+var query_by_day_current_day, query_by_day_next_day, query_by_day_previous_day;
 
 var app = express(); //getting an express instance , app?
 
@@ -66,7 +72,14 @@ app.post('/', function(request, res){
   let action = request.body.result.action; //getting the value of the action of incomming request
   console.log(action);
 
-  if(action == ACTION_GETTING_STARTED){
+  /*
+      =============================================================================
+      Fisrt Instance user connect to the bot with Facbook Platform
+      Ask for the role from the user
+      =============================================================================
+  */
+
+  if(action == 'ACTION_FB_REG_GETTINGSTARTED'){
     var facebookID = request.body.originalRequest.data.sender.id;//the facebook id
     console.log(facebookID);
 	  //getFacebookData function was implemented in this js file.
@@ -82,121 +95,27 @@ app.post('/', function(request, res){
       ))
     });
   }
-  /*
-  if(action == ACTION_CHECK_SEMESTER){
-
-    console.log(request.body.result);
-
-    semester = request.body.result.parameters.semesterNum || request.body.result.parameters.semesterOrd;
-
-    if(semester > 0 && semester < 3){
-      // first year student
-      eNumber = request.body.result.parameters.eNumber;
-      fieldOfStudy = 'General';
-      let query = `INSERT INTO userInfo VALUES(${facebookID}, '${firstName}', '${lastName}', '${eNumber}',
-                    '${fieldOfStudy}', ${semester});`;
-
-      console.log(query);
-
-      client.query(query, function(err, result) {
-        if (err){
-          console.error(err);
-          response.send("Error " + err);
-        }else{
-          console.log(result.rows);
-        }
-      });
-
-      let reply = `Ah.. That's great! Now you can ask me anything.` || `Good to go! How can I help you?`;
-
-      res.header('Content-Type', 'application/json');
-
-      res.send(JSON.stringify({"messages": [{"type": 0, "speech": reply}]},
-                              {"context": [{"name":"semester", "lifespan":10, "parameters":null}]}))
-
-    }else if (semester < 9) {
-      // ask for Fields
-      res.send(JSON.stringify({"data": { "facebook": {
-                                "text": "What is your Field ?",
-                                "quick_replies": [{ "content_type": "text", "title": "Com", "payload": "com"},
-                                                  { "content_type": "text", "title": "Elec", "payload": "elec"},
-                                                  { "content_type": "text", "title": "Civil", "payload": "civil"},
-                                                  { "content_type": "text", "title": "Mec", "payload": "mec"},
-                                                  { "content_type": "text", "title": "Chem", "payload": "chem"},
-                                                  { "content_type": "text", "title": "Prod", "payload": "prod"}]}}},
-                                {"contextOut": [{"name":"semester", "lifespan":0, "parameters":{}},
-                                                {"name":"chooseField", "lifespan":5, "parameters":{}}]}))
-
-    }else {
-      // invalid semester
-
-      let reply = `Something wrong with your Semester` || `Invalid Semester, check again`;
-
-      res.send(JSON.stringify({"messages": [{"type": 0, "speech": reply}]},
-                              {"contextOut": [{"name":"semester", "lifespan":2, "parameters":{}}]}))
-    }
-
-  }
-  */
-  /*
-  if(action == ACTION_ADD_USER_TO_DB){
-
-    eNumber = request.body.result.parameters.eNumber;
-    fieldOfStudy = request.body.result.parameters.fields;
-    semester = request.body.result.parameters.semester;
-
-    let query = `INSERT INTO userInfo VALUES(${facebookID}, '${firstName}', '${lastName}', '${eNumber}',
-                  '${fieldOfStudy}', ${semester});`;
-
-    console.log(query);
-
-    client.query(query, function(err, result) {
-      if (err){
-        console.error(err);
-        //res.send("Error " + err);
-      }else{
-        console.log(result.rows);
-      }
-    });
-  }
-  */
-  /*
-  if(action == ACTION_WELCOME){
-
-    facebookId = request.body.originalRequest.data.sender.id;
-
-    client.query(`SELECT * FROM userInfo WHERE fbid=${facebookId}`, function(err, result) {
-      if (err){
-        console.error(err);
-        response.send("Error " + err);
-      }else{
-        console.log(result.rows);
-      }
-    });
-
-  }
-  */
 
   /*
       =============================================================================
-      Actions used to Query TimeTables using only the time
+      Actions used to Query Timetables using only the time
       time variables are defined GLOBAL to all the time related Actions
       inorder to use in user asks (next and previous) followed by first query
       =============================================================================
   */
 
   // Need to query the DB using the time for the first time
-  if(action == ACTION_TIMETABLE_QUERY_BY_TIME_1){
+  if(action == 'ACTION_QUERY_BY_TIME_1'){
 
     let facebookID = request.body.originalRequest.data.sender.id;       // facebook id
-    current_time = request.body.result.parameters.time;                     // time user asking
+    query_by_time_current_time = request.body.result.parameters.time;                 // time user asking
 
-    queryByTime(current_time, facebookID, function (err, data) {
+    queryByTime(query_by_time_current_time, facebookID, function (err, data) {
       if(!err){
         // Extract values from data and send to user + update our reference values
         var msg = `You have ${data.courseid} from ${data.starttime} to ${data.endtime}`;
-        timetable_query_previous_endtime = data.endtime;
-        timetable_query_previous_starttime = data.starttime;
+        query_by_time_previous_endtime = data.endtime;
+        query_by_time_previous_starttime = data.starttime;
         res.send(JSON.stringify({'messages': [{"type": 0, "speech": msg}]}))
       }else {
         res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
@@ -206,16 +125,34 @@ app.post('/', function(request, res){
 
   }
   // Need to query the DB using the time for the second time (A next followed by 1st query)
-  if(action == ACTION_TIMETABLE_QUERY_BY_TIME_NEXT){
+  if(action == 'ACTION_QUERY_BY_TIME_NEXT'){
 
     let facebookID = request.body.originalRequest.data.sender.id;       // facebook id
-    console.log(timetable_query_previous_endtime);
-    queryByTimeNext(timetable_query_previous_endtime, facebookID, function (err, data) {
+    console.log(query_by_time_previous_endtime);
+    queryByTimeNext(query_by_time_previous_endtime, facebookID, function (err, data) {
       if(!err){
         // Extract values from data and send to user + update our reference values
         var msg = `You have ${data.courseid} from ${data.starttime} to ${data.endtime}`;
-        timetable_query_previous_endtime = data.endtime;
-        timetable_query_previous_starttime = data.starttime;
+        query_by_time_previous_endtime = data.endtime;
+        query_by_time_previous_starttime = data.starttime;
+        res.send(JSON.stringify({'messages': [{"type": 0, "speech": msg}]}))
+      }else {
+        res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
+      }
+
+    });
+  }
+  // Need to query the DB using the time for the second time (A previous followed by 1st query)
+  if(action == 'ACTION_QUERY_BY_TIME_PREVIOUS'){
+
+    let facebookID = request.body.originalRequest.data.sender.id;       // facebook id
+    console.log(query_by_time_previous_starttime);
+    queryByTimePrevious(query_by_time_previous_starttime, facebookID, function (err, data) {
+      if(!err){
+        // Extract values from data and send to user + update our reference values
+        var msg = `You have ${data.courseid} from ${data.starttime} to ${data.endtime}`;
+        query_by_time_previous_endtime = data.endtime;
+        query_by_time_previous_starttime = data.starttime;
         res.send(JSON.stringify({'messages': [{"type": 0, "speech": msg}]}))
       }else {
         res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
@@ -224,13 +161,98 @@ app.post('/', function(request, res){
     });
   }
 
+  /*
+      =============================================================================
+      Actions used to Query Timetables using only the day
+      Date variables are defined GLOBAL to all the time related Actions
+      inorder to use in user asks (next and previous) followed by first query
+      =============================================================================
+  */
 
+  // Need to query the DB using the day for the first time
+  if(action == 'ACTION_QUERY_BY_DAY_1'){
+
+    let facebookID = request.body.originalRequest.data.sender.id;       // facebook id
+    query_by_day_current_day = request.body.result.parameters.day;      // day user asking
+    console.log('Current day = ' + query_by_day_current_day);
+    queryByDay(query_by_day_current_day, facebookID, function (err, data) {
+      if(!err){
+        // Extract values from data and send to user + update our reference values
+        getPreviousDay(query_by_day_current_day, function (data) {
+          query_by_day_previous_day = data;
+        });
+        getNextDay(query_by_day_current_day, function (data) {
+          query_by_day_next_day = data;
+        });
+        console.log(query_by_day_previous_day);
+        res.send(JSON.stringify(data))
+      }else {
+        res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
+      }
+
+    });
+  }
+  // Need to query the DB using the day for the second time
+  if(action == 'ACTION_QUERY_BY_DAY_NEXT'){
+
+    let facebookID = request.body.originalRequest.data.sender.id;       // facebook id
+    query_by_day_current_day = query_by_day_next_day;      // day user asking
+
+    queryByDay(query_by_day_current_day, facebookID, function (err, data) {
+      if(!err){
+        // Extract values from data and send to user + update our reference values
+
+        getPreviousDay(query_by_day_current_day, function (data) {
+          query_by_day_previous_day = data;
+        });
+        getNextDay(query_by_day_current_day, function (data) {
+          query_by_day_next_day = data;
+        });
+
+        res.send(JSON.stringify(data))
+      }else {
+        res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
+      }
+
+    });
+  }
+  // Need to query the DB using the day for the second time
+  if(action == 'ACTION_QUERY_BY_DAY_PREVIOUS'){
+
+    let facebookID = request.body.originalRequest.data.sender.id;       // facebook id
+    query_by_day_current_day = query_by_day_previous_day;      // day user asking
+
+    queryByDay(query_by_day_current_day, facebookID, function (err, data) {
+      if(!err){
+        // Extract values from data and send to user + update our reference values
+
+        getPreviousDay(query_by_day_current_day, function (data) {
+          query_by_day_previous_day = data;
+        });
+        getNextDay(query_by_day_current_day, function (data) {
+          query_by_day_next_day = data;
+        });
+        res.send(JSON.stringify(data))
+      }else {
+        res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
+      }
+
+    });
+  }
 
 });
 
 // set the port your listening
 app.listen(PORT);
 console.log('listening to port : ' + PORT);
+
+/*
+  ==============================================================================
+
+  Functions used to query the DB by Time
+
+  ==============================================================================
+*/
 
 //function to query the DB by time  e.g -> What do i have at 2pm ?
 function queryByTime(time, facebookId, callback){
@@ -245,7 +267,7 @@ function queryByTime(time, facebookId, callback){
 
   client.query(query, function(err, result) {
     if (!err && result.rows.length > 0){
-      // If no Error get eNumber and query studentInfoTable
+      // If no Error get eNumber and query studentInfotable
       let eNumber = result.rows[0].registrationnumber;
       console.log('eNumber = ' + eNumber);
       query = `Select fieldofstudy, semester FROM table_user_student_feels WHERE registrationnumber='${eNumber}';`;
@@ -255,15 +277,15 @@ function queryByTime(time, facebookId, callback){
           // If no Error get fieldOfStudy, Semester and query the respective table
           let fieldOfStudy = result.rows[0].fieldofstudy;
           let semester = result.rows[0].semester;
-          table = MAP_SEMESTER_TO_DB[semester-1];   // Since indexing is done from 0
-          console.log('Table to Query = ' + table);
-          date = 'Monday';
+          table_to_query = MAP_SEMESTER_TO_DB[semester-1];   // Since indexing is done from 0
+          console.log('table to Query = ' + table_to_query);
+          query_by_time_date = 'Monday';
           // get the day of the week to query the DB
           // getWeekDay(function (data) {
-	        //    date = data;
+	        //    query_by_time_date = data;
           // });
 
-          query = `Select * FROM ${table} WHERE timetabledate='${date}' AND starttime<='${time}' AND endtime>='${time}';`;
+          query = `Select * FROM ${table_to_query} WHERE timetabledate='${query_by_time_date}' AND starttime<='${time}' AND endtime>='${time}';`;
 
           client.query(query, function(err, result) {
 
@@ -274,7 +296,7 @@ function queryByTime(time, facebookId, callback){
               callback(error, data);
 
             }else {
-              error = err || `No results found at ${table}`;
+              error = err || `No results found at ${table_to_query}`;
               callback(error, data);
             }
           });
@@ -293,14 +315,14 @@ function queryByTime(time, facebookId, callback){
   });
 }
 
-  //function to query the DB by time(user say next followed by 1st query)  e.g -> What do i have at 2pm ? Next ?
+//function to query the DB by time(user say next followed by 1st query)  e.g -> What do i have at 2pm ? Next ?
 function queryByTimeNext(time, facebookId, callback){
 
   console.log('======= Query By Time Next =========');
 
   var error, data;
 
-  query = `Select * FROM ${table} WHERE timetabledate='${date}' AND starttime>='${time}' order by starttime;`;
+  query = `Select * FROM ${table_to_query} WHERE timetabledate='${query_by_time_date}' AND starttime>='${time}' order by starttime;`;
 
   client.query(query, function(err, result) {
 
@@ -311,11 +333,116 @@ function queryByTimeNext(time, facebookId, callback){
       callback(error, data);
 
     }else {
-      error = err || `That's all for ${date}`;
+      error = err || `That's all for ${query_by_time_date}`;
       callback(error, data);
     }
   });
 
+}
+
+//function to query the DB by time(user say previous followed by 1st query)  e.g -> What do i have at 2pm ? Before it ?
+function queryByTimePrevious(time, facebookId, callback){
+
+console.log('======= Query By Time Before =========');
+
+var error, data;
+
+query = `Select * FROM ${table_to_query} WHERE timetabledate='${query_by_time_date}' AND endtime<='${time}' order by endtime DESC;`;
+
+client.query(query, function(err, result) {
+
+  if (!err && result.rows.length > 0){
+    // If no Error get courseId, startTime, endTime and send back to the user
+    console.log(result.rows);
+    data = result.rows[0];
+    callback(error, data);
+
+  }else {
+    error = err || `You have nothing before that on ${query_by_time_date}`;
+    callback(error, data);
+  }
+});
+
+}
+
+
+/*
+  ==============================================================================
+
+  Functions used to query the DB by Day
+
+  ==============================================================================
+*/
+
+
+//function to query the DB by time  e.g -> What do i have at 2pm ?
+function queryByDay(day, facebookId, callback){
+
+  console.log(`======= Query By Day on ${day}=========`);
+
+  //console.log(facebookID);
+  // get eNumber with facebookID
+  let query = `Select registrationnumber FROM table_user_map_chatclients WHERE facebookid='${facebookId}';`;
+
+  var error;
+
+  var data = {}          // empty Object
+  var key = 'messages';
+  data[key] = [];       // empty Array, which you can push() values into
+
+  client.query(query, function(err, result) {
+    if (!err && result.rows.length > 0){
+      // If no Error get eNumber and query studentInfotable
+      let eNumber = result.rows[0].registrationnumber;
+      console.log('eNumber = ' + eNumber);
+      query = `Select fieldofstudy, semester FROM table_user_student_feels WHERE registrationnumber='${eNumber}';`;
+
+      client.query(query, function(err, result) {
+        if (!err && result.rows.length > 0){
+          // If no Error get fieldOfStudy, Semester and query the respective table
+          let fieldOfStudy = result.rows[0].fieldofstudy;
+          let semester = result.rows[0].semester;
+          table_to_query = MAP_SEMESTER_TO_DB[semester-1];   // Since indexing is done from 0
+          console.log('table to Query = ' + table_to_query);
+          query = `Select * FROM ${table_to_query} WHERE timetabledate='${day}' ORDER BY starttime;`;
+
+          client.query(query, function(err, result) {
+
+            if (!err && result.rows.length > 0){
+              // If no Error get courseId, startTime, endTime and send back to the user
+
+              for (var i = 0; i < result.rows.length; i++) {
+
+                let cousreID = result.rows[i].courseid;
+                let startTime = result.rows[i].starttime;
+                let endTime = result.rows[i].endtime;
+
+                let msg = `You have ${cousreID} from ${startTime} to ${endTime}`;
+                var course = {type : 0, speech : msg};
+
+                data[key].push(course);
+              }
+
+              callback(error, data);
+
+            }else {
+              error = err || `You don't have anything on ${day}`;
+              callback(error, data);
+            }
+          });
+
+        }else {
+          error = err || `No results found at table_user_student_feels`;
+          callback(error, data);
+        }
+      });
+
+    }else {
+      error = err || `No results found at table_user_map_chatclients`;
+      callback(error, data);
+    }
+
+  });
 }
 
 // Get user information using the facebookId
@@ -342,16 +469,46 @@ function getFacebookData(facebookId, callback) {
 // function to get the day(Monday, Tuesday,.. of the week)
 function getWeekDay(callback) {
 
-  var weekday=new Array(7);
-  weekday[0]="Monday";
-  weekday[1]="Tuesday";
-  weekday[2]="Wednesday";
-  weekday[3]="Thursday";
-  weekday[4]="Friday";
-  weekday[5]="Saturday";
-  weekday[6]="Sunday";
-
   var data = weekday[new Date().getDay()-1];
+
+  callback(data);
+
+}
+
+// function to get the next day
+function getNextDay(day, callback) {
+
+  var data;
+
+  for (var i = 0; i < weekday.length; i++) {
+    if(weekday[i] == day){
+      if(i == 6){
+        data = weekday[0];
+      }else {
+        data = weekday[i+1];
+      }
+    }
+  }
+
+  callback(data);
+
+}
+
+// function to get the next day
+function getPreviousDay(day, callback) {
+
+  var data;
+
+  for (var i = 0; i < weekday.length; i++) {
+
+    if(weekday[i] === day){
+      if(i == 0){
+        data = weekday[6];
+      }else {
+        data = weekday[i-1];
+      }
+    }
+  }
 
   callback(data);
 
