@@ -1,6 +1,308 @@
 
 // https://vast-peak-63221.herokuapp.com/
 
+//-------------------------------------------------------------------------------------------------------[database connection]
+//postgres database url
+const DATABASE_URL = 'postgres://dcfvnzofeempgk:2c027d6f6788c5b82e4cbb9e9d388254211a61156d1fc1e35312c8c5885958aa@ec2-107-22-167-179.compute-1.amazonaws.com:5432/d3teg1g8u2anm';
+
+
+const { Client } = require('pg');
+
+//database connection information? database instance
+const client = new Client({
+  connectionString: DATABASE_URL,
+  ssl: true,
+});
+
+client.connect(); //connecting to the database? client database instance
+
+//-------------------------------------------------------------------------------------------------------[EMAIL HANDLING]---
+
+var current_verification_code='0';
+var current_facebook_id='';
+var current_registrationnumber='';
+
+var generator = require('generate-password');
+
+
+var nodemailer = require('nodemailer'); //get instance
+
+var transporter = nodemailer.createTransport({ //setting email account details
+  service: 'gmail',
+  auth: {
+    user: 'perachatbot@gmail.com',
+    pass: '39gkjgOJga#)(%@309y3kgb2589rDJLpew'
+  }
+});
+
+function verification_code_generate(){
+	var password = generator.generate({
+		length: 10,
+		numbers: true
+	});
+	current_verification_code=password;
+	
+	//update database
+	db_query_update_verification_code(current_registrationnumber,'facebook',current_verification_code);
+	
+	return password;
+}
+
+
+function get_mail_send_verification(email_to,verification_code){
+	var mail_send_verification = {
+	  from: 'perachatbot@gmail@gmail.com',
+	  to: email_to,
+	  subject: 'PeraInfoBot - Facebook Verification!',
+	  text: 'Please click this link to verify your request : https://vast-peak-63221.herokuapp.com/verify-facebook?regno='+current_registrationnumber+'&client=facebook&verification_code='+verification_code+'&client_id='+current_facebook_id
+	};
+	return mail_send_verification;
+}
+
+function email_send_verification_code(email_to){
+	transporter.sendMail(get_mail_send_verification(email_to,verification_code_generate()), function(error, info){
+	  if (error) {
+		console.log(error);
+	  } else {
+		console.log('Email sent: ' + info.response);
+		
+	  }
+	}); 
+}
+
+/**
+	to send verification email
+	email_send_verification_code('chandi2398@gmail.com');
+**/
+
+//-------------------------------------------------------------------------------------------------------[FB-REGISTRAION-FUNCTIONS]-------
+
+
+function getCompatibleEnumber(given_enumber){
+	return given_enumber.replace('E', 'e').replace(/\//g ,'').trim().toString();
+}
+
+function db_query_get_email_from_registrationnumber(user_table_name,confirmed_regnumber){
+
+  console.log('======= db_query_get_email_from_registrationnumber =========');
+  let query = `select primaryemail from ${user_table_name} where registrationnumber='${confirmed_regnumber}';`;
+  var error, data;
+
+  client.query(query, function(err, result) {
+    if (!err && result.rows.length > 0){
+      // If no Error get eNumber and query studentInfoTable
+      let primary_email = result.rows[0].primaryemail;
+      console.log('primaryemail = ' + primary_email);
+	  return primary_email;
+    }else {
+      error = err || `No record found at ${user_table_name}`;
+      //callback(error, data);
+	  return 'no-result-found';
+    }
+  });
+}
+
+//this function send a verification email to the given registration number on given table
+function db_query_get_email_from_registrationnumber_and_send_verification_email(user_table_name,confirmed_regnumber){
+
+  console.log('======= db_query_get_email_from_registrationnumber =========');
+  let query = `select primaryemail from ${user_table_name} where registrationnumber='${confirmed_regnumber}';`;
+  var error, data;
+
+  client.query(query, function(err, result) {
+    if (!err && result.rows.length > 0){
+      // If no Error get eNumber and query studentInfoTable
+      let primary_email = result.rows[0].primaryemail;
+      console.log('primaryemail = ' + primary_email);
+	  
+	  //now send the email
+	  email_send_verification_code(primary_email);
+	  
+    }else {
+      error = err || `No record found at ${user_table_name}`;
+      //callback(error, data);
+	  console.log('error : querying email using registration number');
+    }
+  });
+}
+
+//add the current facebooid to the database
+function db_query_set_current_facebook_id(table_name,confirmed_regnumber,current_facebook_id){
+
+  console.log('======= db_query_set_current_facebook_id =========');
+  let query = `update ${user_table_name} set facebooid='${current_facebook_id}' where registrationnumber='${confirmed_regnumber}';`;
+  var error, data;
+
+  client.query(query, function(err, result) {
+    if (!err){
+      console.log('successfully linked the facebooid');
+
+    }else {
+      error = err || `No record found at ${user_table_name}`;
+      //callback(error, data);
+	  console.log('unsuccessfull - linking facebooid');
+    }
+  });
+}
+
+
+//update/insert the verification_code in database
+//check for previous entries [regnumber+chatclient]
+//if exists-> update else insert 
+function db_query_update_verification_code(confirmed_regnumber,chatting_client,verification_code){
+
+  console.log('======= db_query_update_verification_code =========');
+  
+  let query = `select exists(select verificationcode from table_chatclient_verification where registrationnumber='${confirmed_regnumber}' and chatclient='${chatting_client}');`;
+  var error, data;
+
+  client.query(query, function(err, result) {
+    if (!err){
+	  let query_result = result.rows[0].exists;
+      console.log("record exists : "+query_result);
+	  
+	  if('true'==JSON.stringify(query_result)){//exists->update
+		  
+		  let query = `update table_chatclient_verification set verificationcode='${verification_code}' where registrationnumber='${confirmed_regnumber}' and chatclient='${chatting_client}';`;
+		  //console.log(query);
+		  var error, data;
+
+		  client.query(query, function(err, result) {
+			if (!err){
+			  console.log("verification code updated");
+			}else {
+			  error = err || `No record found at table`;
+			  //callback(error, data);
+			  console.log('unsuccessfull - db_query_update_verification_code-update error');
+			}
+		  });
+		  
+	  }else{ //insert
+		
+			var request_time=new Date().toISOString().
+								  replace(/T/, ' ').      // replace T with a space
+								  replace(/\..+/, '');     // delete the dot and everything after;
+			
+		  let query = `insert into table_chatclient_verification(requestTime, registrationNumber, chatClient, verificationCode) values('${request_time}','${confirmed_regnumber}','${chatting_client}','${verification_code}');`;
+		  var error, data;
+
+		  client.query(query, function(err, result) {
+			if (!err){
+			  console.log("verification code inserted");
+			}else {
+			  error = err || `No record found at table`;
+			  //callback(error, data);
+			  console.log('unsuccessfull - db_query_update_verification_code-insert error');
+			}
+		  });
+	  }
+
+    }else {
+      error = err || `No record found at ${user_table_name}`;
+      //callback(error, data);
+	  console.log('unsuccessfull - db_query_update_verification_code-existance_check');
+    }
+  });
+}
+
+
+//select verification code
+function db_query_select_verification_code(confirmed_regnumber,chatting_client,verification_code,client_id,response){
+
+  console.log('======= db_query_select_verification_code =========');
+  let query = `(select verificationcode from table_chatclient_verification where registrationnumber='${confirmed_regnumber}' and chatclient='${chatting_client}');`;
+  var error, data;
+	
+  client.query(query, function(err, result) {
+    if (!err){
+	
+	  
+	  console.log(result.rows[0]);
+	  
+	  let query_result = result.rows[0].verificationcode;
+      console.log("verificationcode in db : "+query_result+ "sent : "+verification_code);
+	  
+	  //verify the code
+	  if(verification_code==query_result){
+		  console.log('verification codes matched - linking started');
+		  //landing page
+		  response.render('pages/verify-facebook-valid');
+		  
+		  //link the client
+		  
+		  let query = `select exists(select * from table_user_map_chatclients where registrationnumber='${confirmed_regnumber}');`;
+		  var error, data;
+
+		  client.query(query, function(err, result) {
+			if (!err){
+			  let query_result = result.rows[0].exists;
+			  console.log("record exists : "+query_result);
+			  
+			  if('true'==JSON.stringify(query_result)){//exists->update
+				  
+			  let query = `update table_user_map_chatclients set facebookid='${client_id}' where registrationnumber='${confirmed_regnumber}';`;
+				  console.log(query);
+					
+				  var error, data;
+
+				  client.query(query, function(err, result) {
+					if (!err){
+					  console.log("clinet link updated");
+					}else {
+					  error = err || `No record found at table`;
+					  //callback(error, data);
+					  console.log('unsuccessfull - db_query_select_verification_code-link update error');
+					}
+				  });
+				  
+			  }else{ //insert
+				
+					var request_time=new Date().toISOString().
+										  replace(/T/, ' ').      // replace T with a space
+										  replace(/\..+/, '');     // delete the dot and everything after;
+					
+				  let query = `insert into table_user_map_chatClients(registrationnumber, facebooid, whatsappid, viberid, twitterid) values('${confirmed_regnumber}','${client_id}','NONE','NONE','NONE');`;
+				  var error, data;
+
+				  client.query(query, function(err, result) {
+					if (!err){
+					  console.log("facebooid  inserted");
+					}else {
+					  error = err || `No record found at table`;
+					  //callback(error, data);
+					  console.log('unsuccessfull - db_query_select_verification_code-insert error');
+					}
+				  });
+			  }
+
+			}else {
+			  error = err || `No record found at ${user_table_name}`;
+			  //callback(error, data);
+			  console.log('unsuccessfull - db_query_select_verification_code-existance_check');
+			}
+		  });
+		  
+	  }else{
+		  console.log('verification codes not matched');
+		  //landing page
+		  response.render('pages/verify-facebook-invalid');
+	  }
+		
+    }else {
+      error = err || `No record found at table`;
+      //callback(error, data);
+	  console.log('unsuccessfull - db_query_select_verification_code-norecord');
+	  
+	  response.render('pages/verify-facebook-invalid');
+    }
+  });
+  
+	
+}
+
+
+//-----------------------------------------------------------------------------------------------------------------------------
+
 var express = require('express') //a minimal and flexible Node.js web application framework that provides a robust set of features to develop web and mobile applications.
 , bodyParser = require('body-parser'); //this is a node.js middleware for handling JSON, Raw, Text and URL encoded form data.
 
@@ -18,18 +320,16 @@ const PORT = process.env.PORT || 5000;
 const FB_PAGE_ACCESS_TOKEN = 'EAAFLoV6ANvIBADadfOI0WWJ0ZBSd3cAO5Vm5GCpDYrjw4MPKu8OIh5tyv9hwHzoATCQGdM2z2xck4Mmg3kW4V8yzGQVvLCULnNC5nkGn9kLZBrQJZCPGPYZAWAFBlZB0FqBgEUYC7crwJfiQ5MuUEaViBZBzZCDq2TitfieKLuduAZDZD';
 
 //DialogFlow intent actions
-const ACTION_GETTING_STARTED = 'action_getting_started';
+/**
+const ACTION_FB_REG_GETTINGSTARTED = 'action_fb_reg_gettingstarted';
 const ACTION_ENUM_CONFIRMED = 'action_eNum_confirmed';
 const ACTION_ADD_USER_TO_DB = 'action_add_user';
 const ACTION_CHECK_SEMESTER = 'action_check_semester';
 const ACTION_WELCOME = '';
 
-// Time Table query actions
-const ACTION_TIMETABLE_QUERY_BY_TIME_1 = 'action_queryTimeTable_byTime';
-const ACTION_TIMETABLE_QUERY_BY_TIME_NEXT = 'action_queryTimeTable_byTime_next';
+const ACTION_QUERY_BY_TIME = 'action_queryTimeTable_byTime';
 
-//postgres database url
-const DATABASE_URL = 'postgres://dcfvnzofeempgk:2c027d6f6788c5b82e4cbb9e9d388254211a61156d1fc1e35312c8c5885958aa@ec2-107-22-167-179.compute-1.amazonaws.com:5432/d3teg1g8u2anm';
+**/
 
 // Map of Semesters to the DB Tables
 const MAP_SEMESTER_TO_DB = [
@@ -41,20 +341,8 @@ const MAP_SEMESTER_TO_DB = [
    	"table_current_semester_shortsem6"
 ];
 
-// Time variables
-var current_time,  timetable_query_previous_starttime, timetable_query_previous_endtime, table, date;
-
 var app = express(); //getting an express instance , app?
 
-const { Client } = require('pg');
-
-//database connection information? database instance
-const client = new Client({
-  connectionString: DATABASE_URL,
-  ssl: true,
-});
-
-client.connect(); //connecting to the database? client database instance
 
 app.use(bodyParser.json());
 app.set('view engine', 'pug');    // set a view engine to show reults in web browser
@@ -66,7 +354,7 @@ app.post('/', function(request, res){
   let action = request.body.result.action; //getting the value of the action of incomming request
   console.log(action);
 
-  if(action == ACTION_GETTING_STARTED){
+  if(action == 'ACTION_FB_REG_GETTINGSTARTED'){ //--------------------------------------------------------------[GETTING STARTED]-------
     var facebookID = request.body.originalRequest.data.sender.id;//the facebook id
     console.log(facebookID);
 	  //getFacebookData function was implemented in this js file.
@@ -82,6 +370,157 @@ app.post('/', function(request, res){
       ))
     });
   }
+  
+  if(action == 'ACTION_FB_REG_ROLE_STUDENT_ENUMBER_CONFIRMED'){ //-----------------------------------------[FB_REG_SEND_VERIFICATION]-------
+    var facebookID = request.body.originalRequest.data.sender.id;//the facebook id
+	var confirmed_regnumber=request.body.result.parameters.eNumber;//get the confirmed enumber
+	current_facebook_id=facebookID;//update the current facebook id
+	
+	console.log('confirmed enumber : '+getCompatibleEnumber(confirmed_regnumber));
+	
+	current_registrationnumber=getCompatibleEnumber(confirmed_regnumber);
+	
+	//sending the verification code
+	db_query_get_email_from_registrationnumber_and_send_verification_email('table_user_student_feels',current_registrationnumber);
+	
+    console.log('The facebook id: '+facebookID+' ; sent the confirmation email');
+  }
+  
+  
+  // Need to query the DB using the time
+  if(action == 'ACTION_QUERY_BY_TIME_1'){
+
+    let facebookID = request.body.originalRequest.data.sender.id;       // facebook id
+    let time = request.body.result.parameters.time;                     // time user asking
+
+    queryByTime(time, facebookID, function (err, data) {
+      if(!err){
+        res.send(JSON.stringify({'messages': [{"type": 0, "speech": data}]}))
+      }else {
+        res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
+      }
+
+    });
+
+  }
+  
+  
+  //---------------------------------------------------------------------------------------------------test-facebook-slider msg
+  
+  if(action == 'ACTION_SLIDER_MSG'){ //--------------------------------------------------------------[GETTING STARTED]-------
+    var facebookID = request.body.originalRequest.data.sender.id;//the facebook id
+    console.log(facebookID);
+	  //getFacebookData function was implemented in this js file.
+    getFacebookData(facebookID, function(err, data){
+
+      res.send(JSON.stringify(
+			/** https://developers.facebook.com/docs/messenger-platform/send-messages/templates **/
+	  
+			/**
+			{'messages':
+                      [{"type": 0, "speech": "hi hi"},
+                       {"type": 0, "speech": "slider"},
+                       {'title': 'To get started, tell me your role',
+                        'replies': ['1', '2', '3'], 'type': 2}]
+			}
+			
+		**/
+			/** WORKING
+			{ "data":
+				{"facebook": {
+							"text": "What is your Field ?",
+							"quick_replies": [{ "content_type": "text", "title": "Com", "payload": "com"},
+											  { "content_type": "text", "title": "Elec", "payload": "elec"},
+											  { "content_type": "text", "title": "Civil", "payload": "civil"},
+											  { "content_type": "text", "title": "Mec", "payload": "mec"},
+											  { "content_type": "text", "title": "Chem", "payload": "chem"},
+											  { "content_type": "text", "title": "Prod", "payload": "prod"}]
+											  
+							}
+				}
+			}
+			**/
+			
+			/**,
+			{ "contextOut": [{"name":"semester", "lifespan":0, "parameters":{}},
+							 {"name":"chooseField", "lifespan":5, "parameters":{}}]
+			}
+			**/
+			
+			{ "data":
+				{"facebook": {
+							"text": "*CO225 Construction* \n 8:00 am - 9:00 am \n \n *CO225 Construction* \n 8:00 am - 9:00 am \n \n *CO225 Construction* \n 8:00 am - 9:00 am \n \n *CO225 Construction* \n 8:00 am - 9:00 am \n \n *CO225 Construction* \n 8:00 am - 9:00 am \n \n *CO225 Construction* \n 8:00 am - 9:00 am \n \n *CO225 Construction* \n 8:00 am - 9:00 am \n \n *CO225 Construction* \n 8:00 am - 9:00 am \n \n"
+																		  
+							}
+				}
+			}
+			
+			
+			/** WORKING
+					{
+							'data':{
+								"facebook": {
+								"attachment": {
+
+									"type": "template",
+									"payload": {
+										"template_type": "list",
+										"top_element_style": "compact",
+										"elements": [
+											{
+												"title": "Smurfs: The Lost Village (2017)",
+												"subtitle": "Smurfette attempts to find her purpose in the village. When she encounters a creature in the Forbidden Forest who drops a mysterious map, she sets off with her friends Brainy, Clumsy, and Hefty on an adventure to find the Lost Village before the evil wizard Gargamel does.",
+												"buttons": [
+													{
+														"title": "more info",
+														"type": "web_url",
+														"url": "https://www.moovrika.com/m/4082",
+														"webview_height_ratio": "tall"
+													}
+												]
+											},
+											{
+												"title": "Resident Evil: The Final Chapter (2017)",
+												"image_url": "https://www.moovrika.com/ext/makeimg.php?tbl=movies&id=4167&img=1&type=image&movie=Resident+Evil+The+Final+Chapter&fs=400",
+												"subtitle": "Resident Evil: The Final Chapter is an upcoming science fiction action horror film written and directed by Paul W. S. Anderson. It is the sequel to Resident Evil: Retribution (2012), and will be the sixth and final installment in the Resident Evil film series, which is very loosely based on the Capcom survival horror video game series Resident Evil.",
+											   
+												"buttons": [
+													{
+														"title": "more info",
+														"type": "web_url",
+														"url": "https://www.moovrika.com/m/4082",
+														"webview_height_ratio": "tall"
+													}
+												]
+											},
+											{
+												"title": "Resident Evil: The Final Chapter (2017)",
+												"image_url": "https://www.moovrika.com/ext/makeimg.php?tbl=movies&id=4167&img=1&type=image&movie=Resident+Evil+The+Final+Chapter&fs=400",
+												"subtitle": "Resident Evil: The Final Chapter is an upcoming science fiction action horror film written and directed by Paul W. S. Anderson. It is the sequel to Resident Evil: Retribution (2012), and will be the sixth and final installment in the Resident Evil film series, which is very loosely based on the Capcom survival horror video game series Resident Evil.",
+											   
+												"buttons": [
+													{
+														"title": "more info",
+														"type": "web_url",
+														"url": "https://www.moovrika.com/m/4082",
+														"webview_height_ratio": "tall"
+													}
+												]
+											}
+										]
+									}
+
+								}
+							}
+								
+						}
+					}
+			**/
+      ))
+	  
+    });
+  }
+  
   /*
   if(action == ACTION_CHECK_SEMESTER){
 
@@ -176,55 +615,7 @@ app.post('/', function(request, res){
 
   }
   */
-
-  /*
-      =============================================================================
-      Actions used to Query TimeTables using only the time
-      time variables are defined GLOBAL to all the time related Actions
-      inorder to use in user asks (next and previous) followed by first query
-      =============================================================================
-  */
-
-  // Need to query the DB using the time for the first time
-  if(action == ACTION_TIMETABLE_QUERY_BY_TIME_1){
-
-    let facebookID = request.body.originalRequest.data.sender.id;       // facebook id
-    current_time = request.body.result.parameters.time;                     // time user asking
-
-    queryByTime(current_time, facebookID, function (err, data) {
-      if(!err){
-        // Extract values from data and send to user + update our reference values
-        var msg = `You have ${data.courseid} from ${data.starttime} to ${data.endtime}`;
-        timetable_query_previous_endtime = data.endtime;
-        timetable_query_previous_starttime = data.starttime;
-        res.send(JSON.stringify({'messages': [{"type": 0, "speech": msg}]}))
-      }else {
-        res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
-      }
-
-    });
-
-  }
-  // Need to query the DB using the time for the second time (A next followed by 1st query)
-  if(action == ACTION_TIMETABLE_QUERY_BY_TIME_NEXT){
-
-    let facebookID = request.body.originalRequest.data.sender.id;       // facebook id
-    console.log(timetable_query_previous_endtime);
-    queryByTimeNext(timetable_query_previous_endtime, facebookID, function (err, data) {
-      if(!err){
-        // Extract values from data and send to user + update our reference values
-        var msg = `You have ${data.courseid} from ${data.starttime} to ${data.endtime}`;
-        timetable_query_previous_endtime = data.endtime;
-        timetable_query_previous_starttime = data.starttime;
-        res.send(JSON.stringify({'messages': [{"type": 0, "speech": msg}]}))
-      }else {
-        res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
-      }
-
-    });
-  }
-
-
+  
 
 });
 
@@ -255,22 +646,21 @@ function queryByTime(time, facebookId, callback){
           // If no Error get fieldOfStudy, Semester and query the respective table
           let fieldOfStudy = result.rows[0].fieldofstudy;
           let semester = result.rows[0].semester;
-          table = MAP_SEMESTER_TO_DB[semester-1];   // Since indexing is done from 0
+          let table = MAP_SEMESTER_TO_DB[semester-1];   // Since indexing is done from 0
           console.log('Table to Query = ' + table);
-          date = 'Monday';
+          var date = 'monday';
           // get the day of the week to query the DB
           // getWeekDay(function (data) {
 	        //    date = data;
           // });
-
-          query = `Select * FROM ${table} WHERE timetabledate='${date}' AND starttime<='${time}' AND endtime>='${time}';`;
+//
+          query = `Select courseid, starttime, endtime FROM ${table} WHERE timetabledate='${date}' AND starttime<='${time}' AND endtime>='${time}';`;
 
           client.query(query, function(err, result) {
 
             if (!err && result.rows.length > 0){
               // If no Error get courseId, startTime, endTime and send back to the user
-              console.log(result.rows);
-              data = result.rows[0];
+              data = result;
               callback(error, data);
 
             }else {
@@ -290,30 +680,6 @@ function queryByTime(time, facebookId, callback){
       callback(error, data);
     }
 
-  });
-}
-
-  //function to query the DB by time(user say next followed by 1st query)  e.g -> What do i have at 2pm ? Next ?
-function queryByTimeNext(time, facebookId, callback){
-
-  console.log('======= Query By Time Next =========');
-
-  var error, data;
-
-  query = `Select * FROM ${table} WHERE timetabledate='${date}' AND starttime>='${time}' order by starttime;`;
-
-  client.query(query, function(err, result) {
-
-    if (!err && result.rows.length > 0){
-      // If no Error get courseId, startTime, endTime and send back to the user
-      console.log(result.rows);
-      data = result.rows[0];
-      callback(error, data);
-
-    }else {
-      error = err || `That's all for ${date}`;
-      callback(error, data);
-    }
   });
 
 }
@@ -388,35 +754,6 @@ app.get('/users', function (request, response) {
 });
 
 
-// function to check short semester time table
-// here when user, requests <host>/shortSem this function triggers.
-app.get('/shortSem', function (request, response) {
-
-    console.log('===== db_query =====');
-
-    var timeTableList = [];
-
-    client.query('SELECT * FROM table_current_semester_shortsem5', function(err, result) {
-      if (err){
-        console.error(err); response.send("Error " + err);
-      }else{
-        //console.log(result.rows);
-	  		for (var i = 0; i < result.rows.length; i++) {
-
-		  		var course = {
-		  			'day':result.rows[i].timetabledate,
-		  			'start':result.rows[i].starttime,
-		  			'end':result.rows[i].endtime,
-		  			'fos':result.rows[i].fieldofstudy,
-            'id':result.rows[i].courseid
-		  		}
-		  		timeTableList.push(course);
-	  	}
-	  	response.render('pages/shortSem', {"timeTableList": timeTableList});  // use the shortSem.pug file to show data
-    }
-  });
-});
-
 
 /*
 function checkENumber(givenNumber, callback) {
@@ -432,3 +769,47 @@ function checkENumber(givenNumber, callback) {
   callback(err, data);
 }
 */
+
+//FACEBOOK VERIFICATION ----------------------------------------------------------------------------[facebook verification app]
+app.get(
+	'/verify-facebook',
+	function (request, response) {
+		console.log('===== got a facebook verification_code =====');
+		var get_regno= request.query.regno;//$_GET["regno"]
+		var get_client= request.query.client;//$_GET["client"]
+		var get_verification_code= request.query.verification_code;//$_GET["verification_code"]
+		var get_client_id= request.query.client_id;//$_GET["client_id"]client_id
+		
+		console.log(`GET regno '${get_regno}', client '${get_client}', veri '${get_verification_code}', client_id '${get_client_id}'`);
+		
+		//verification
+		db_query_select_verification_code(get_regno,get_client,get_verification_code,get_client_id,response);
+	}
+);
+
+
+
+app.get(
+	'/verify',
+	function (request, response) {
+		console.log('===== send verification_code =====');
+		var send_email_address= request.query.emailto;//$_GET["emailto"]
+		email_send_verification_code(send_email_address);
+	}
+);
+
+
+app.get(
+	'/test',
+	function (request, response) {
+		console.log('===== test =====');
+		
+		var confirmed_regnumber='E/14/305';
+		
+		//sending the verification code
+		db_query_get_email_from_registrationnumber_and_send_verification_email('table_user_student_feels',getCompatibleEnumber(confirmed_regnumber));
+	
+	}
+	
+);
+
