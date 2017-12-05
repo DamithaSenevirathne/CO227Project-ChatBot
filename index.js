@@ -1,6 +1,306 @@
 
 // https://vast-peak-63221.herokuapp.com/
 
+//postgres database url
+const DATABASE_URL = 'postgres://dcfvnzofeempgk:2c027d6f6788c5b82e4cbb9e9d388254211a61156d1fc1e35312c8c5885958aa@ec2-107-22-167-179.compute-1.amazonaws.com:5432/d3teg1g8u2anm';
+
+const { Client } = require('pg');
+
+//database connection information? database instance
+const client = new Client({
+  connectionString: DATABASE_URL,
+  ssl: true,
+});
+
+client.connect(); //connecting to the database? client database instance
+
+//-------------------------------------------------------------------------------------------------------[EMAIL HANDLING]---
+
+var current_verification_code='0';
+var current_facebook_id='';
+var current_registrationnumber='';
+
+var generator = require('generate-password');
+
+
+var nodemailer = require('nodemailer'); //get instance
+
+var transporter = nodemailer.createTransport({ //setting email account details
+  service: 'gmail',
+  auth: {
+    user: 'perachatbot@gmail.com',
+    pass: '39gkjgOJga#)(%@309y3kgb2589rDJLpew'
+  }
+});
+
+function verification_code_generate(){
+	var password = generator.generate({
+		length: 10,
+		numbers: true
+	});
+	current_verification_code=password;
+
+	//update database
+	db_query_update_verification_code(current_registrationnumber,'facebook',current_verification_code);
+
+	return password;
+}
+
+
+function get_mail_send_verification(email_to,verification_code){
+	var mail_send_verification = {
+	  from: 'perachatbot@gmail@gmail.com',
+	  to: email_to,
+	  subject: 'PeraInfoBot - Facebook Verification!',
+	  text: 'Please click this link to verify your request : https://vast-peak-63221.herokuapp.com/verify-facebook?regno='+current_registrationnumber+'&client=facebook&verification_code='+verification_code+'&client_id='+current_facebook_id
+	};
+	return mail_send_verification;
+}
+
+function email_send_verification_code(email_to){
+	transporter.sendMail(get_mail_send_verification(email_to,verification_code_generate()), function(error, info){
+	  if (error) {
+		console.log(error);
+	  } else {
+		console.log('Email sent: ' + info.response);
+
+	  }
+	});
+}
+
+/**
+	to send verification email
+	email_send_verification_code('chandi2398@gmail.com');
+**/
+
+//-------------------------------------------------------------------------------------------------------[FB-REGISTRAION-FUNCTIONS]-------
+
+
+function getCompatibleEnumber(given_enumber){
+	return given_enumber.replace('E', 'e').replace(/\//g ,'').trim().toString();
+}
+
+function db_query_get_email_from_registrationnumber(user_table_name,confirmed_regnumber){
+
+  console.log('======= db_query_get_email_from_registrationnumber =========');
+  let query = `select primaryemail from ${user_table_name} where registrationnumber='${confirmed_regnumber}';`;
+  var error, data;
+
+  client.query(query, function(err, result) {
+    if (!err && result.rows.length > 0){
+      // If no Error get eNumber and query studentInfoTable
+      let primary_email = result.rows[0].primaryemail;
+      console.log('primaryemail = ' + primary_email);
+	  return primary_email;
+    }else {
+      error = err || `No record found at ${user_table_name}`;
+      //callback(error, data);
+	  return 'no-result-found';
+    }
+  });
+}
+
+//this function send a verification email to the given registration number on given table
+function db_query_get_email_from_registrationnumber_and_send_verification_email(user_table_name,confirmed_regnumber){
+
+  console.log('======= db_query_get_email_from_registrationnumber =========');
+  let query = `select primaryemail from ${user_table_name} where registrationnumber='${confirmed_regnumber}';`;
+  var error, data;
+
+  client.query(query, function(err, result) {
+    if (!err && result.rows.length > 0){
+      // If no Error get eNumber and query studentInfoTable
+      let primary_email = result.rows[0].primaryemail;
+      console.log('primaryemail = ' + primary_email);
+
+	  //now send the email
+	  email_send_verification_code(primary_email);
+
+    }else {
+      error = err || `No record found at ${user_table_name}`;
+      //callback(error, data);
+	  console.log('error : querying email using registration number');
+    }
+  });
+}
+
+//add the current facebooid to the database
+function db_query_set_current_facebook_id(table_name,confirmed_regnumber,current_facebook_id){
+
+  console.log('======= db_query_set_current_facebook_id =========');
+  let query = `update ${user_table_name} set facebooid='${current_facebook_id}' where registrationnumber='${confirmed_regnumber}';`;
+  var error, data;
+
+  client.query(query, function(err, result) {
+    if (!err){
+      console.log('successfully linked the facebooid');
+
+    }else {
+      error = err || `No record found at ${user_table_name}`;
+      //callback(error, data);
+	  console.log('unsuccessfull - linking facebooid');
+    }
+  });
+}
+
+
+//update/insert the verification_code in database
+//check for previous entries [regnumber+chatclient]
+//if exists-> update else insert
+function db_query_update_verification_code(confirmed_regnumber,chatting_client,verification_code){
+
+  console.log('======= db_query_update_verification_code =========');
+
+  let query = `select exists(select verificationcode from table_chatclient_verification where registrationnumber='${confirmed_regnumber}' and chatclient='${chatting_client}');`;
+  var error, data;
+
+  client.query(query, function(err, result) {
+    if (!err){
+	  let query_result = result.rows[0].exists;
+      console.log("record exists : "+query_result);
+
+	  if('true'==JSON.stringify(query_result)){//exists->update
+
+		  let query = `update table_chatclient_verification set verificationcode='${verification_code}' where registrationnumber='${confirmed_regnumber}' and chatclient='${chatting_client}';`;
+		  //console.log(query);
+		  var error, data;
+
+		  client.query(query, function(err, result) {
+			if (!err){
+			  console.log("verification code updated");
+			}else {
+			  error = err || `No record found at table`;
+			  //callback(error, data);
+			  console.log('unsuccessfull - db_query_update_verification_code-update error');
+			}
+		  });
+
+	  }else{ //insert
+
+			var request_time=new Date().toISOString().
+								  replace(/T/, ' ').      // replace T with a space
+								  replace(/\..+/, '');     // delete the dot and everything after;
+
+		  let query = `insert into table_chatclient_verification(requestTime, registrationNumber, chatClient, verificationCode) values('${request_time}','${confirmed_regnumber}','${chatting_client}','${verification_code}');`;
+		  var error, data;
+
+		  client.query(query, function(err, result) {
+			if (!err){
+			  console.log("verification code inserted");
+			}else {
+			  error = err || `No record found at table`;
+			  //callback(error, data);
+			  console.log('unsuccessfull - db_query_update_verification_code-insert error');
+			}
+		  });
+	  }
+
+    }else {
+      error = err || `No record found at ${user_table_name}`;
+      //callback(error, data);
+	  console.log('unsuccessfull - db_query_update_verification_code-existance_check');
+    }
+  });
+}
+
+
+//select verification code
+function db_query_select_verification_code(confirmed_regnumber,chatting_client,verification_code,client_id,response){
+
+  console.log('======= db_query_select_verification_code =========');
+  let query = `(select verificationcode from table_chatclient_verification where registrationnumber='${confirmed_regnumber}' and chatclient='${chatting_client}');`;
+  var error, data;
+
+  client.query(query, function(err, result) {
+    if (!err){
+
+
+	  console.log(result.rows[0]);
+
+	  let query_result = result.rows[0].verificationcode;
+      console.log("verificationcode in db : "+query_result+ "sent : "+verification_code);
+
+	  //verify the code
+	  if(verification_code==query_result){
+		  console.log('verification codes matched - linking started');
+		  //landing page
+		  response.render('pages/verify-facebook-valid');
+
+		  //link the client
+
+		  let query = `select exists(select * from table_user_map_chatclients where registrationnumber='${confirmed_regnumber}');`;
+		  var error, data;
+
+		  client.query(query, function(err, result) {
+			if (!err){
+			  let query_result = result.rows[0].exists;
+			  console.log("record exists : "+query_result);
+
+			  if('true'==JSON.stringify(query_result)){//exists->update
+
+			  let query = `update table_user_map_chatclients set facebookid='${client_id}' where registrationnumber='${confirmed_regnumber}';`;
+				  console.log(query);
+
+				  var error, data;
+
+				  client.query(query, function(err, result) {
+					if (!err){
+					  console.log("clinet link updated");
+					}else {
+					  error = err || `No record found at table`;
+					  //callback(error, data);
+					  console.log('unsuccessfull - db_query_select_verification_code-link update error');
+					}
+				  });
+
+			  }else{ //insert
+
+					var request_time=new Date().toISOString().
+										  replace(/T/, ' ').      // replace T with a space
+										  replace(/\..+/, '');     // delete the dot and everything after;
+
+				  let query = `insert into table_user_map_chatClients(registrationnumber, facebooid, whatsappid, viberid, twitterid) values('${confirmed_regnumber}','${client_id}','NONE','NONE','NONE');`;
+				  var error, data;
+
+				  client.query(query, function(err, result) {
+					if (!err){
+					  console.log("facebooid  inserted");
+					}else {
+					  error = err || `No record found at table`;
+					  //callback(error, data);
+					  console.log('unsuccessfull - db_query_select_verification_code-insert error');
+					}
+				  });
+			  }
+
+			}else {
+			  error = err || `No record found at ${user_table_name}`;
+			  //callback(error, data);
+			  console.log('unsuccessfull - db_query_select_verification_code-existance_check');
+			}
+		  });
+
+	  }else{
+		  console.log('verification codes not matched');
+		  //landing page
+		  response.render('pages/verify-facebook-invalid');
+	  }
+
+    }else {
+      error = err || `No record found at table`;
+      //callback(error, data);
+	  console.log('unsuccessfull - db_query_select_verification_code-norecord');
+
+	  response.render('pages/verify-facebook-invalid');
+    }
+  });
+
+
+}
+
+
+//-------------------------------------------------------------------------------[Nodejs App to support backend of DialogFlow]--------
+
 var express = require('express') //a minimal and flexible Node.js web application framework that provides a robust set of features to develop web and mobile applications.
 , bodyParser = require('body-parser'); //this is a node.js middleware for handling JSON, Raw, Text and URL encoded form data.
 
@@ -19,9 +319,6 @@ const PORT = process.env.PORT || 5000;
 
 //Chatbot facebook page, access token
 const FB_PAGE_ACCESS_TOKEN = 'EAAFLoV6ANvIBADadfOI0WWJ0ZBSd3cAO5Vm5GCpDYrjw4MPKu8OIh5tyv9hwHzoATCQGdM2z2xck4Mmg3kW4V8yzGQVvLCULnNC5nkGn9kLZBrQJZCPGPYZAWAFBlZB0FqBgEUYC7crwJfiQ5MuUEaViBZBzZCDq2TitfieKLuduAZDZD';
-
-//postgres database url
-const DATABASE_URL = 'postgres://dcfvnzofeempgk:2c027d6f6788c5b82e4cbb9e9d388254211a61156d1fc1e35312c8c5885958aa@ec2-107-22-167-179.compute-1.amazonaws.com:5432/d3teg1g8u2anm';
 
 // Map of Semesters to the DB Tables
 const MAP_SEMESTER_TO_DB = [
@@ -50,16 +347,6 @@ var query_by_time_current_time, query_by_time_previous_starttime, query_by_time_
 var query_by_day_current_day, query_by_day_next_day, query_by_day_previous_day;
 
 var app = express(); //getting an express instance , app?
-
-const { Client } = require('pg');
-
-//database connection information? database instance
-const client = new Client({
-  connectionString: DATABASE_URL,
-  ssl: true,
-});
-
-client.connect(); //connecting to the database? client database instance
 
 app.use(bodyParser.json());
 app.set('view engine', 'pug');    // set a view engine to show reults in web browser
@@ -93,6 +380,21 @@ app.post('/', function(request, res){
 
       ))
     });
+  }
+
+  if(action == 'ACTION_FB_REG_ROLE_STUDENT_ENUMBER_CONFIRMED'){ //-----------------------------------------[FB_REG_SEND_VERIFICATION]-------
+     var facebookID = request.body.originalRequest.data.sender.id;  //the facebook id
+	   var confirmed_regnumber=request.body.result.parameters.eNumber;//get the confirmed enumber
+	   current_facebook_id=facebookID; //update the current facebook id
+
+	   console.log('confirmed enumber : '+getCompatibleEnumber(confirmed_regnumber));
+
+	   current_registrationnumber=getCompatibleEnumber(confirmed_regnumber);
+
+	   //sending the verification code
+	   db_query_get_email_from_registrationnumber_and_send_verification_email('table_user_student_feels',current_registrationnumber);
+
+    console.log('The facebook id: '+facebookID+' ; sent the confirmation email');
   }
 
   /*
@@ -200,15 +502,17 @@ app.post('/', function(request, res){
     let facebookID = request.body.originalRequest.data.sender.id;       // facebook id
     query_by_day_current_day = moment(request.body.result.parameters.day).format('dddd');      // day user asking
     console.log('Current day = ' + query_by_day_current_day);
+
+    getPreviousDay(query_by_day_current_day, function (data) {
+      query_by_day_previous_day = data;
+    });
+    getNextDay(query_by_day_current_day, function (data) {
+      query_by_day_next_day = data;
+    });
+
     queryByDay(query_by_day_current_day, facebookID, function (err, data) {
       if(!err){
         // Extract values from data and send to user + update our reference values
-        getPreviousDay(query_by_day_current_day, function (data) {
-          query_by_day_previous_day = data;
-        });
-        getNextDay(query_by_day_current_day, function (data) {
-          query_by_day_next_day = data;
-        });
         res.send(JSON.stringify(data))
       }else {
         res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
@@ -222,17 +526,16 @@ app.post('/', function(request, res){
     let facebookID = request.body.originalRequest.data.sender.id;       // facebook id
     query_by_day_current_day = query_by_day_next_day;      // day user asking
 
+    getPreviousDay(query_by_day_current_day, function (data) {
+      query_by_day_previous_day = data;
+    });
+    getNextDay(query_by_day_current_day, function (data) {
+      query_by_day_next_day = data;
+    });
+
     queryByDay(query_by_day_current_day, facebookID, function (err, data) {
       if(!err){
         // Extract values from data and send to user + update our reference values
-
-        getPreviousDay(query_by_day_current_day, function (data) {
-          query_by_day_previous_day = data;
-        });
-        getNextDay(query_by_day_current_day, function (data) {
-          query_by_day_next_day = data;
-        });
-
         res.send(JSON.stringify(data))
       }else {
         res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
@@ -246,16 +549,16 @@ app.post('/', function(request, res){
     let facebookID = request.body.originalRequest.data.sender.id;       // facebook id
     query_by_day_current_day = query_by_day_previous_day;      // day user asking
 
+    getPreviousDay(query_by_day_current_day, function (data) {
+      query_by_day_previous_day = data;
+    });
+    getNextDay(query_by_day_current_day, function (data) {
+      query_by_day_next_day = data;
+    });
+
     queryByDay(query_by_day_current_day, facebookID, function (err, data) {
       if(!err){
         // Extract values from data and send to user + update our reference values
-
-        getPreviousDay(query_by_day_current_day, function (data) {
-          query_by_day_previous_day = data;
-        });
-        getNextDay(query_by_day_current_day, function (data) {
-          query_by_day_next_day = data;
-        });
         res.send(JSON.stringify(data))
       }else {
         res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
@@ -316,7 +619,8 @@ function queryByDateAndTime(date, time, facebookId, callback){
               callback(error, data);
 
             }else {
-              error = err || `You don't have anything at ${time} on ${date}`;
+              let timeAsked = moment(time, "HH:mm:ss").format('hh:mm A');
+              error = err || `You don't have anything at ${timeAsked} on ${date}`;
               callback(error, data);
             }
           });
@@ -538,6 +842,12 @@ function getPreviousDay(day, callback) {
 
 }
 
+/*
+    =============================================================================
+    Functions used to view the DBs in the web browser
+    =============================================================================
+*/
+
 // function to check current details in userInfo
 // here when user, requests <host>/users this function triggers.
 app.get('/users', function (request, response) {
@@ -628,17 +938,28 @@ app.get('/shortSem', function (request, response) {
 });
 
 
-/*
-function checkENumber(givenNumber, callback) {
-  let num = givenNumber.replace('/', '').replace('e', '').replace('E', '').trim().toString();
-  console.log(num);
-  console.log(num.length);
+//FACEBOOK VERIFICATION ----------------------------------------------------------------------------[facebook verification app]
+app.get(
+	'/verify-facebook',
+	function (request, response) {
+		console.log('===== got a facebook verification_code =====');
+		var get_regno= request.query.regno;//$_GET["regno"]
+		var get_client= request.query.client;//$_GET["client"]
+		var get_verification_code= request.query.verification_code;//$_GET["verification_code"]
+		var get_client_id= request.query.client_id;//$_GET["client_id"]client_id
 
-  if(num.length != 5)var err = 'Invalid registration number';
-  else {
-    var data = 'E/' + num.substring(0,2) + '/' + num.substring(2,5);
-    console.log(data);
-  }
-  callback(err, data);
-}
-*/
+		console.log(`GET regno '${get_regno}', client '${get_client}', veri '${get_verification_code}', client_id '${get_client_id}'`);
+
+		//verification
+		db_query_select_verification_code(get_regno,get_client,get_verification_code,get_client_id,response);
+	}
+);
+
+app.get(
+	'/verify',
+	function (request, response) {
+		console.log('===== send verification_code =====');
+		var send_email_address= request.query.emailto;//$_GET["emailto"]
+		email_send_verification_code(send_email_address);
+	}
+);
