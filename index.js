@@ -29,7 +29,7 @@ var transporter = nodemailer.createTransport({ //setting email account details
   service: 'gmail',
   auth: {
     user: 'perachatbot@gmail.com',
-    pass: '39gkjgOJga#)(%@309y3kgb2589rDJLpew'
+    pass: ''//--------------------------------------------------------------------------<<<<<<<<<<<<<<< Email password here
   }
 });
 
