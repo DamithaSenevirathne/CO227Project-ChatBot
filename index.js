@@ -13,7 +13,6 @@ var fs = require('fs'); //to read files
 
 // to format dates
 var moment = require('moment');
-moment().format();
 
 //nodejs server online port
 const PORT = process.env.PORT || 5000;
@@ -98,8 +97,8 @@ app.post('/', function(request, res){
 
   /*
       =============================================================================
-      Actions used to Query Timetables using only the time
-      time variables are defined GLOBAL to all the time related Actions
+      Actions used to Query Timetables using the time and date
+      date, time variables are defined GLOBAL to all the time related Actions
       inorder to use in user asks (next and previous) followed by first query
       =============================================================================
   */
@@ -107,16 +106,28 @@ app.post('/', function(request, res){
   // Need to query the DB using the time for the first time
   if(action == 'ACTION_QUERY_BY_TIME_1'){
 
-    let facebookID = request.body.originalRequest.data.sender.id;       // facebook id
-    query_by_time_current_time = request.body.result.parameters.time;                 // time user asking
+    let facebookID = request.body.originalRequest.data.sender.id;           // facebook id
+    query_by_time_current_time = request.body.result.parameters.time;       // time user asking
+    // date user asking, if not use current date
+    if(request.body.result.parameters.date){
+      query_by_time_date = moment(request.body.result.parameters.date).format('dddd');
+    }else {
+      query_by_time_date = moment(new Date()).format('dddd');
+    }
 
-    queryByTime(query_by_time_current_time, facebookID, function (err, data) {
+    queryByDateAndTime(query_by_time_date, query_by_time_current_time, facebookID, function (err, data) {
       if(!err){
-        // Extract values from data and send to user + update our reference values
-        var msg = `You have ${data.courseid} from ${data.starttime} to ${data.endtime}`;
+        // Extract values from data and send to user + update our reference values  moment("12:15 AM", ["h:mm A"]).format("HH:mm");
         query_by_time_previous_endtime = data.endtime;
         query_by_time_previous_starttime = data.starttime;
-        res.send(JSON.stringify({'messages': [{"type": 0, "speech": msg}]}))
+
+        let starttime = moment(data.starttime, "HH:mm:ss").format('hh:mm A');
+        let endtime = moment(data.endtime, "HH:mm:ss").format('hh:mm A');
+        var reply = {'messages':
+                        [{"type": 0, "speech": 'You have,'},
+                         {"type": 0, "speech": `*${data.courseid}* from _${starttime}_ to _${endtime}_`}]}
+
+        res.send(JSON.stringify(reply))
       }else {
         res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
       }
@@ -132,10 +143,17 @@ app.post('/', function(request, res){
     queryByTimeNext(query_by_time_previous_endtime, facebookID, function (err, data) {
       if(!err){
         // Extract values from data and send to user + update our reference values
-        var msg = `You have ${data.courseid} from ${data.starttime} to ${data.endtime}`;
+
         query_by_time_previous_endtime = data.endtime;
         query_by_time_previous_starttime = data.starttime;
-        res.send(JSON.stringify({'messages': [{"type": 0, "speech": msg}]}))
+
+        let starttime = moment(data.starttime, "HH:mm:ss").format('hh:mm A');
+        let endtime = moment(data.endtime, "HH:mm:ss").format('hh:mm A');
+        var reply = {'messages':
+                        [{"type": 0, "speech": 'You have,'},
+                         {"type": 0, "speech": `*${data.courseid}* from _${starttime}_ to _${endtime}_`}]}
+
+        res.send(JSON.stringify(reply))
       }else {
         res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
       }
@@ -150,10 +168,17 @@ app.post('/', function(request, res){
     queryByTimePrevious(query_by_time_previous_starttime, facebookID, function (err, data) {
       if(!err){
         // Extract values from data and send to user + update our reference values
-        var msg = `You have ${data.courseid} from ${data.starttime} to ${data.endtime}`;
+
         query_by_time_previous_endtime = data.endtime;
         query_by_time_previous_starttime = data.starttime;
-        res.send(JSON.stringify({'messages': [{"type": 0, "speech": msg}]}))
+
+        let starttime = moment(data.starttime, "HH:mm:ss").format('hh:mm A');
+        let endtime = moment(data.endtime, "HH:mm:ss").format('hh:mm A');
+        var reply = {'messages':
+                        [{"type": 0, "speech": 'You have,'},
+                         {"type": 0, "speech": `*${data.courseid}* from _${starttime}_ to _${endtime}_`}]}
+
+        res.send(JSON.stringify(reply))
       }else {
         res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
       }
@@ -173,7 +198,7 @@ app.post('/', function(request, res){
   if(action == 'ACTION_QUERY_BY_DAY_1'){
 
     let facebookID = request.body.originalRequest.data.sender.id;       // facebook id
-    query_by_day_current_day = request.body.result.parameters.day;      // day user asking
+    query_by_day_current_day = moment(request.body.result.parameters.day).format('dddd');      // day user asking
     console.log('Current day = ' + query_by_day_current_day);
     queryByDay(query_by_day_current_day, facebookID, function (err, data) {
       if(!err){
@@ -184,7 +209,6 @@ app.post('/', function(request, res){
         getNextDay(query_by_day_current_day, function (data) {
           query_by_day_next_day = data;
         });
-        console.log(query_by_day_previous_day);
         res.send(JSON.stringify(data))
       }else {
         res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
@@ -249,15 +273,16 @@ console.log('listening to port : ' + PORT);
 /*
   ==============================================================================
 
-  Functions used to query the DB by Time
+  Functions used to query the DB by Time and Date
 
   ==============================================================================
 */
 
 //function to query the DB by time  e.g -> What do i have at 2pm ?
-function queryByTime(time, facebookId, callback){
+function queryByDateAndTime(date, time, facebookId, callback){
 
-  console.log('======= Query By Time =========');
+  console.log('======= Query By Time And Date =========');
+  console.log('time = ' + time + " date = " + date);
 
   //console.log(facebookID);
   // get eNumber with facebookID
@@ -279,13 +304,8 @@ function queryByTime(time, facebookId, callback){
           let semester = result.rows[0].semester;
           table_to_query = MAP_SEMESTER_TO_DB[semester-1];   // Since indexing is done from 0
           console.log('table to Query = ' + table_to_query);
-          query_by_time_date = 'Monday';
-          // get the day of the week to query the DB
-          // getWeekDay(function (data) {
-	        //    query_by_time_date = data;
-          // });
 
-          query = `Select * FROM ${table_to_query} WHERE timetabledate='${query_by_time_date}' AND starttime<='${time}' AND endtime>='${time}';`;
+          query = `Select * FROM ${table_to_query} WHERE timetabledate='${date}' AND starttime<='${time}' AND endtime>='${time}';`;
 
           client.query(query, function(err, result) {
 
@@ -296,19 +316,19 @@ function queryByTime(time, facebookId, callback){
               callback(error, data);
 
             }else {
-              error = err || `No results found at ${table_to_query}`;
+              error = err || `You don't have anything at ${time} on ${date}`;
               callback(error, data);
             }
           });
 
         }else {
-          error = err || `No results found at table_user_student_feels`;
+          error = err || `Seems like you're not a Efac student`;
           callback(error, data);
         }
       });
 
     }else {
-      error = err || `No results found at table_user_map_chatclients`;
+      error = err || `Looks like you are not registered yet`;
       callback(error, data);
     }
 
@@ -411,13 +431,17 @@ function queryByDay(day, facebookId, callback){
             if (!err && result.rows.length > 0){
               // If no Error get courseId, startTime, endTime and send back to the user
 
+              var firstMsg = {type : 0, speech : `On ${day} you have,`}
+              data[key].push(firstMsg)
+
               for (var i = 0; i < result.rows.length; i++) {
 
                 let cousreID = result.rows[i].courseid;
-                let startTime = result.rows[i].starttime;
-                let endTime = result.rows[i].endtime;
+                // format the time into Am, Pm format
+                let startTime = moment(result.rows[i].starttime, "HH:mm:ss").format('hh:mm A');
+                let endTime = moment(result.rows[i].endtime, "HH:mm:ss").format('hh:mm A');
 
-                let msg = `You have ${cousreID} from ${startTime} to ${endTime}`;
+                let msg = `*${cousreID}*\n_${startTime}_ - _${endTime}_`;
                 var course = {type : 0, speech : msg};
 
                 data[key].push(course);
@@ -432,13 +456,13 @@ function queryByDay(day, facebookId, callback){
           });
 
         }else {
-          error = err || `No results found at table_user_student_feels`;
+          error = err || `Seems like you're not a Efac student`;
           callback(error, data);
         }
       });
 
     }else {
-      error = err || `No results found at table_user_map_chatclients`;
+      error = err || `Looks like you are not registered yet`;
       callback(error, data);
     }
 
@@ -540,6 +564,35 @@ app.get('/users', function (request, response) {
 		  		userList.push(user);
 	  	}
 	  	response.render('pages/userInfo', {"userList": userList});  // use the userInfo.pug file to show data
+    }
+  });
+});
+
+// function to check user Chat client mappings
+// here when user, requests <host>/userChatMap this function triggers.
+app.get('/userChatMap', function (request, response) {
+
+    console.log('===== db_query =====');
+
+    var userList = [];
+
+    client.query('SELECT * FROM table_user_map_chatclients', function(err, result) {
+      if (err){
+        console.error(err); response.send("Error " + err);
+      }else{
+        //console.log(result.rows);
+	  		for (var i = 0; i < result.rows.length; i++) {
+
+		  		var chatMap = {
+		  			'eNumber':result.rows[i].registrationnumber,
+		  			'facebookID':result.rows[i].facebookid,
+		  			'whatsappID':result.rows[i].whatsappid,
+		  			'viberID':result.rows[i].viberid,
+            'twitterID':result.rows[i].twitterid
+		  		}
+		  		userList.push(chatMap);
+	  	}
+	  	response.render('pages/userchatmapping', {"userList": userList});  // use the userInfo.pug file to show data
     }
   });
 });
