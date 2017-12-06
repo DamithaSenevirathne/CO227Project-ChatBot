@@ -630,9 +630,30 @@ app.post('/', function(request, res){
       if(!err){
 
         let path = 'https://vast-peak-63221.herokuapp.com/' + data;
-        var reply = {'messages': [{"type": 0, "speech": path}]}
+        
+	    var msg = {
+              'data':{
+                "facebook": {
+                  "attachment": {
+                    "type": "template",
+                    "payload": {
+                      "template_type": "button",
+                      "text":'Full Timetable',
+                      "buttons": [
+                        "type":"web_url",
+                        "url":`${path}`,
+                        "title":"Show"
+                      ]
+                    }
+                  }
+                }
+              }
+            };
+        //var reply = {'messages': [{"type": 0, "speech": path}]}
 
-        res.send(JSON.stringify(reply))
+        res.send(JSON.stringify(msg))
+
+        //res.send(JSON.stringify(reply))
       }else {
         res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
       }
