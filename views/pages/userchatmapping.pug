@@ -1,24 +1,22 @@
 html
 	head
-		title= 'User List'
+		title= 'User Chat Mapping'
 		link(rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons")
 		link(rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css")
 		script(src="https://code.getmdl.io/1.3.0/material.min.js")
 		body
-		h3= 'User List'
+		h3= 'User Chat Mapping'
 	table
 		tr
 			th= 'eNumber'
-			th= 'firstName'
-			th= 'lastName'
-			th= 'eMail'
-			th= 'fieldOfStudy'
-			th= 'Semester'
+			th= 'facebookID'
+			th= 'whatsappID'
+			th= 'viberID'
+			th= 'twitterID'
 		for user in userList
 			tr
 				td= user.eNumber
-				td= user.firstName
-				td= user.lastName
-				td= user.eMail
-				td= user.fieldOfStudy
-				td= user.semester
+				td= user.facebookID
+				td= user.whatsappID
+				td= user.viberID
+				td= user.twitterID
