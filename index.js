@@ -978,8 +978,7 @@ function queryByDay(day, facebookId, callback){
 
               for (var i = 0; i < result.rows.length; i++) {
 
-                let cousreID1 = result.rows[i].courseid;
-		let courseID = courseID1.trim();
+                let cousreID = result.rows[i].courseid;	
                 // format the time into Am, Pm format
                 let startTime = moment(result.rows[i].starttime, "HH:mm:ss").format('hh:mm A');
                 let endTime = moment(result.rows[i].endtime, "HH:mm:ss").format('hh:mm A');
