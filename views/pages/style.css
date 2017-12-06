@@ -1,4 +1,24 @@
+
+
 td {
    padding: 5px;
-   border: 1px solid #0088cc;
+   border: 0px solid #0088cc;
+}
+
+th{
+	padding:10px;
+	background:#757853;
+	margin-bottom:10px;
+	color:#eeeeee;
+}
+
+li{
+	padding:10px;
+	background:#455555;
+	margin-bottom:10px;
+	color:#eeeeee;
+}
+ul{
+	list-style-type: none;
+	display: inline;
 }
