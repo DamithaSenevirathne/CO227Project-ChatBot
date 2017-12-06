@@ -500,7 +500,13 @@ app.post('/', function(request, res){
   if(action == 'ACTION_QUERY_BY_DAY_1'){
 
     let facebookID = request.body.originalRequest.data.sender.id;       // facebook id
-    query_by_day_current_day = moment(request.body.result.parameters.day).format('dddd');      // day user asking
+	  
+    if(request.body.result.parameters.day){
+      query_by_day_current_day = moment(request.body.result.parameters.day).format('dddd');
+    }else {
+      query_by_day_current_day = moment(new Date()).format('dddd');
+    }
+	  
     console.log('Current day = ' + query_by_day_current_day);
 
     getPreviousDay(query_by_day_current_day, function (data) {
