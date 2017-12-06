@@ -374,7 +374,7 @@ app.post('/', function(request, res){
       var firstMsg = `Hi ${firstName}`;
       res.send(JSON.stringify({'messages':
                       [{"type": 0, "speech": firstMsg},
-                       {"type": 0, "speech": "I'm a Informational Chat bot for Pera Efac"},
+                       {"type": 0, "speech": "I'm an Informational Chatbot for Pera Efac"},
                        {'title': 'To get started, tell me your role',
                         'replies': ['Lecturer', 'Instructor', 'Student'], 'type': 2}]}
 
@@ -567,11 +567,249 @@ app.post('/', function(request, res){
     });
   }
 
+  /*
+     =============================================================================
+     Actions used to query timetables using the courseID and date
+     =============================================================================
+ */
+
+ // Need to query the DB using the courseID and date
+ if(action == 'ACTION_QUERY_BY_COURSEID_AND_DATE'){
+
+   let facebookID = request.body.originalRequest.data.sender.id;       // facebook id
+   query_by_courseID_specified_courseID = request.body.result.parameters.CourseID;      // courseID specified by user
+
+   query_by_courseID_specified_day = moment(request.body.result.parameters.date).format('dddd');   // day specified by user
+   queryByCourseID_Date(query_by_courseID_specified_courseID, query_by_courseID_specified_day,facebookID, function (err, data) {
+     if(!err){
+
+       console.log(data);
+       // Extract values from data and send to user
+       res.send(JSON.stringify(data))
+     }else {
+       res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
+     }
+   });
+ }
+
+  /*
+    =============================================================================
+      Actions used to query timetables using the courseID
+    =============================================================================
+  */
+
+    // Need to query the DB using the courseID
+    if(action == 'ACTION_QUERY_BY_COURSEID'){
+
+    let facebookID = request.body.originalRequest.data.sender.id;       // facebook id
+    query_by_courseID_specified_courseID = request.body.result.parameters.CourseID;      // courseID specified by user
+
+    queryByCourseID(query_by_courseID_specified_courseID,facebookID, function (err, data) {
+      if(!err){
+        console.log(data);
+        // Extract values from data and send to user
+        res.send(JSON.stringify(data))
+      }else {
+        res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
+      }
+
+    });
+  }
+
+  /*
+      =============================================================================
+      Actions used to Query the Full Timetables
+      =============================================================================
+  */
+
+  if(action == 'ACTION_QUERY_FULL'){
+
+    let facebookID = request.body.originalRequest.data.sender.id;           // facebook id
+
+    queryFullTimeTable(facebookID, function (err, data) {
+      if(!err){
+
+        let path = 'https://vast-peak-63221.herokuapp.com/' + data;
+        var reply = {'messages': [{"type": 0, "speech": path}]}
+
+        res.send(JSON.stringify(reply))
+      }else {
+        res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
+      }
+
+    });
+
+  }
+
 });
 
 // set the port your listening
 app.listen(PORT);
 console.log('listening to port : ' + PORT);
+
+
+/*
+  ==============================================================================
+  Functions used to query the DB by CourseID and date
+  ==============================================================================
+*/
+
+//function to query the DB by courseID and date e.g. -> When do I have CO227 tomorrow?
+function queryByCourseID_Date(CourseID, day, facebookId, callback){
+
+  console.log('======= Query By CourseID and Date =========');
+
+  //console.log(facebookID);
+  // get eNumber with facebookID
+  let query = `Select registrationnumber FROM table_user_map_chatclients WHERE facebookid='${facebookId}';`;
+
+  var error;
+  var data = {}          // empty Object
+  var key = 'messages';
+  data[key] = [];       // empty Array, which you can push() values into
+
+
+
+  client.query(query, function(err, result) {
+    if (!err && result.rows.length > 0){
+      // If no Error get eNumber and query studentInfotable
+      let eNumber = result.rows[0].registrationnumber;
+      console.log('eNumber = ' + eNumber);
+      query = `SELECT fieldofstudy, semester FROM table_user_student_feels WHERE registrationnumber='${eNumber}';`;
+
+      client.query(query, function(err, result) {
+        if (!err && result.rows.length > 0){
+          // If no Error get fieldOfStudy, Semester and query the respective table
+          let fieldOfStudy = result.rows[0].fieldofstudy;
+          let semester = result.rows[0].semester;
+          table_to_query = MAP_SEMESTER_TO_DB[semester-1];   // Since indexing is done from 0
+          console.log('table to Query = ' + table_to_query);
+          //query_by_time_date = 'Monday';
+
+          query = `SELECT * FROM ${table_to_query} WHERE courseid='${CourseID}' AND timetabledate='${day}' ORDER BY starttime;`;
+
+          client.query(query, function(err, result) {
+
+            if (!err && result.rows.length > 0){
+              // If no error get required time and send back to the user
+              var firstMsg = {type : 0, speech : `On *${day}* you have *${CourseID}* from`}
+              data[key].push(firstMsg)
+
+              for (var i = 0; i < result.rows.length; i++) {
+
+                let courseID = result.rows[i].courseid;
+                let startTime = moment(result.rows[i].starttime, "HH:mm:ss").format('hh:mm A');
+                let endTime = moment(result.rows[i].endtime, "HH:mm:ss").format('hh:mm A');
+
+                let msg = `_${startTime}_ - _${endTime}_\n`;
+                var course = {type : 0, speech : msg};
+
+                data[key].push(course);
+              }
+               callback(error, data);
+
+
+            }else {
+              error = err || `You don't have ${CourseID} on ${day}`;
+              callback(error, data);
+            }
+          });
+
+        }else {
+          error = err || `Seems like you're not an Efac student`;
+          callback(error, data);
+        }
+      });
+
+    }else {
+      error = err || `Looks like you are not registered yet`;
+      callback(error, data);
+    }
+
+  });
+}
+
+/*
+  ==============================================================================
+  Functions used to query the DB by CourseID and days
+  ==============================================================================
+*/
+
+//function to query the DB by courseID and days e.g. -> When do I have CO227 next week?
+function queryByCourseID(CourseID, facebookId, callback){
+
+  console.log('======= Query By CourseID =========');
+
+  //console.log(facebookID);
+  // get eNumber with facebookID
+  let query = `Select registrationnumber FROM table_user_map_chatclients WHERE facebookid='${facebookId}';`;
+
+  var error;
+  var data = {}          // empty Object
+  var key = 'messages';
+  data[key] = [];       // empty Array, which you can push() values into
+
+
+
+  client.query(query, function(err, result) {
+    if (!err && result.rows.length > 0){
+      // If no Error get eNumber and query studentInfotable
+      let eNumber = result.rows[0].registrationnumber;
+      console.log('eNumber = ' + eNumber);
+      query = `SELECT fieldofstudy, semester FROM table_user_student_feels WHERE registrationnumber='${eNumber}';`;
+
+      client.query(query, function(err, result) {
+        if (!err && result.rows.length > 0){
+          // If no Error get fieldOfStudy, Semester and query the respective table
+          let fieldOfStudy = result.rows[0].fieldofstudy;
+          let semester = result.rows[0].semester;
+          table_to_query = MAP_SEMESTER_TO_DB[semester-1];   // Since indexing is done from 0
+          console.log('table to Query = ' + table_to_query);
+          //query_by_time_date = 'Monday';
+
+          query = `SELECT * FROM ${table_to_query} WHERE courseid='${CourseID}';`;
+
+          client.query(query, function(err, result) {
+
+            if (!err && result.rows.length > 0){
+              // If no error get required time and send back to the user
+              var firstMsg = {type : 0, speech : `You have ${CourseID} `}
+              data[key].push(firstMsg)
+
+              for (var i = 0; i < result.rows.length; i++) {
+
+                let courseID = result.rows[i].courseid;
+                let startTime = moment(result.rows[i].starttime, "HH:mm:ss").format('hh:mm A');
+                let endTime = moment(result.rows[i].endtime, "HH:mm:ss").format('hh:mm A');
+                let timetabledate = result.rows[i].timetabledate;
+
+                let msg = `*${timetabledate}*\n_${startTime}_ - _${endTime}_`;
+                var course = {type : 0, speech : msg};
+
+                data[key].push(course);
+              }
+               callback(error, data);
+
+
+            }else {
+              error = err || `You don't have ${CourseID} on ${day}`;
+              callback(error, data);
+            }
+          });
+
+        }else {
+          error = err || `Seems like you're not an Efac student`;
+          callback(error, data);
+        }
+      });
+
+    }else {
+      error = err || `Looks like you are not registered yet`;
+      callback(error, data);
+    }
+
+  });
+}
 
 /*
   ==============================================================================
@@ -626,7 +864,7 @@ function queryByDateAndTime(date, time, facebookId, callback){
           });
 
         }else {
-          error = err || `Seems like you're not a Efac student`;
+          error = err || `Seems like you're not an Efac student`;
           callback(error, data);
         }
       });
@@ -760,7 +998,58 @@ function queryByDay(day, facebookId, callback){
           });
 
         }else {
-          error = err || `Seems like you're not a Efac student`;
+          error = err || `Seems like you're not an Efac student`;
+          callback(error, data);
+        }
+      });
+
+    }else {
+      error = err || `Looks like you are not registered yet`;
+      callback(error, data);
+    }
+
+  });
+}
+
+/*
+  ==============================================================================
+
+  Functions used to query the DB to get Full Timetable
+
+  ==============================================================================
+*/
+
+//function to query the DB by to get full time table  e.g -> show me my timetable
+function queryFullTimeTable(facebookId, callback){
+
+  console.log('======= Query Full Time table =========');
+
+  // get eNumber with facebookID
+  let query = `Select registrationnumber FROM table_user_map_chatclients WHERE facebookid='${facebookId}';`;
+
+  var error, data;
+
+  client.query(query, function(err, result) {
+    if (!err && result.rows.length > 0){
+      // If no Error get eNumber and query studentInfotable
+      let eNumber = result.rows[0].registrationnumber;
+      console.log('eNumber = ' + eNumber);
+      query = `Select fieldofstudy, semester FROM table_user_student_feels WHERE registrationnumber='${eNumber}';`;
+
+      client.query(query, function(err, result) {
+        if (!err && result.rows.length > 0){
+          // If no Error get fieldOfStudy, Semester and query the respective table
+          let fieldOfStudy = result.rows[0].fieldofstudy;
+          let semester = result.rows[0].semester;
+          table_to_query = MAP_SEMESTER_TO_DB[semester-1];   // Since indexing is done from 0
+          console.log('table to Query = ' + table_to_query);
+
+          let data = `timetable?timetable=${table_to_query}&field=${fieldOfStudy}`;
+
+          callback(error, data);
+
+        }else {
+          error = err || `Seems like you're not an Efac student`;
           callback(error, data);
         }
       });
@@ -963,3 +1252,213 @@ app.get(
 		email_send_verification_code(send_email_address);
 	}
 );
+
+//--------------------------------------------------------------------------------------------[Show Timetables]
+app.get(
+	'/timetable',
+	function (request, response) {
+		console.log('===== time table =====');
+
+		//get request parameters
+		var get_timetable= request.query.timetable;//$_GET["regno"]
+		var get_field= request.query.field;//$_GET["regno"]
+		//query database and put them into date_1,date_2.. array
+		//and show
+		db_query_show_timetable(get_timetable,get_field,response);
+
+
+
+	}
+);
+
+
+function db_query_show_timetable(get_timetable,get_field,response){
+
+  console.log('======= db_query_show_timetable =========');
+
+
+		var slot_mon_1=[];
+		var slot_tue_1=[];
+		var slot_wed_1=[];
+		var slot_thu_1=[];
+		var slot_fri_1=[];
+		var slot_sat_1=[];
+		var slot_sun_1=[];
+
+  let query = `select starttime,endtime,courseid from ${get_timetable} where timetabledate='Monday' and fieldOfStudy='${get_field}' order by starttime;`;
+  var error, data;
+  client.query(query, function(err, result) {
+    if (!err && result.rows.length > 0){
+      // If no Error get eNumber and query studentInfoTable
+  //    let primary_email = result.rows[0].primaryemail;
+//      console.log('primaryemail = ' + primary_email);
+		var currentRow=0; var cr;
+		for(currentRow=0;currentRow<result.rows.length;currentRow++){
+			cr=result.rows[currentRow].courseid +" : FROM "+  result.rows[currentRow].starttime +" TO "+ result.rows[currentRow].endtime;
+			console.log(cr);
+			slot_mon_1.push(cr);
+		}
+    }else {
+      error = err || `No record found at `;
+      //callback(error, data);
+	  //return 'no-result-found';
+    }
+
+
+
+  });
+
+  query = `select starttime,endtime,courseid from ${get_timetable} where timetabledate='Tuesday' and fieldOfStudy='${get_field}' order by starttime;`;
+
+  client.query(query, function(err, result) {
+    if (!err && result.rows.length > 0){
+      // If no Error get eNumber and query studentInfoTable
+  //    let primary_email = result.rows[0].primaryemail;
+//      console.log('primaryemail = ' + primary_email);
+		var currentRow=0; var cr;
+		for(currentRow=0;currentRow<result.rows.length;currentRow++){
+			cr=result.rows[currentRow].courseid +" : FROM "+  result.rows[currentRow].starttime +" TO "+ result.rows[currentRow].endtime;
+			console.log(cr);
+			slot_tue_1.push(cr);
+		}
+    }else {
+      error = err || `No record found at `;
+      //callback(error, data);
+	  //return 'no-result-found';
+    }
+
+
+
+  });
+
+
+  query = `select starttime,endtime,courseid from ${get_timetable} where timetabledate='Wednesday' and fieldOfStudy='${get_field}' order by starttime;`;
+
+  client.query(query, function(err, result) {
+    if (!err && result.rows.length > 0){
+      // If no Error get eNumber and query studentInfoTable
+  //    let primary_email = result.rows[0].primaryemail;
+//      console.log('primaryemail = ' + primary_email);
+		var currentRow=0; var cr;
+		for(currentRow=0;currentRow<result.rows.length;currentRow++){
+			cr=result.rows[currentRow].courseid +" : FROM "+  result.rows[currentRow].starttime +" TO "+ result.rows[currentRow].endtime;
+			console.log(cr);
+			slot_wed_1.push(cr);
+		}
+    }else {
+      error = err || `No record found at `;;
+      //callback(error, data);
+	  //return 'no-result-found';
+    }
+
+
+
+  });
+
+  query = `select starttime,endtime,courseid from ${get_timetable} where timetabledate='Thursday' and fieldOfStudy='${get_field}' order by starttime;`;
+
+  client.query(query, function(err, result) {
+    if (!err && result.rows.length > 0){
+      // If no Error get eNumber and query studentInfoTable
+  //    let primary_email = result.rows[0].primaryemail;
+//      console.log('primaryemail = ' + primary_email);
+		var currentRow=0; var cr;
+		for(currentRow=0;currentRow<result.rows.length;currentRow++){
+			cr=result.rows[currentRow].courseid +" : FROM "+  result.rows[currentRow].starttime +" TO "+ result.rows[currentRow].endtime;
+			console.log(cr);
+			slot_thu_1.push(cr);
+		}
+    }else {
+      error = err || `No record found at `;
+      //callback(error, data);
+	  //return 'no-result-found';
+    }
+
+
+
+  });
+
+  query = `select starttime,endtime,courseid from ${get_timetable} where timetabledate='Friday' and fieldOfStudy='${get_field}' order by starttime;`;
+
+  client.query(query, function(err, result) {
+    if (!err && result.rows.length > 0){
+      // If no Error get eNumber and query studentInfoTable
+  //    let primary_email = result.rows[0].primaryemail;
+//      console.log('primaryemail = ' + primary_email);
+		var currentRow=0; var cr;
+		for(currentRow=0;currentRow<result.rows.length;currentRow++){
+			cr=result.rows[currentRow].courseid +" : FROM "+  result.rows[currentRow].starttime +" TO "+ result.rows[currentRow].endtime;
+			console.log(cr);
+			slot_fri_1.push(cr);
+		}
+    }else {
+      error = err || `No record found at `;
+      //callback(error, data);
+	  //return 'no-result-found';
+    }
+
+
+
+  });
+
+  query = `select starttime,endtime,courseid from ${get_timetable} where timetabledate='Saturday' and fieldOfStudy='${get_field}' order by starttime;`;
+
+  client.query(query, function(err, result) {
+    if (!err && result.rows.length > 0){
+      // If no Error get eNumber and query studentInfoTable
+  //    let primary_email = result.rows[0].primaryemail;
+//      console.log('primaryemail = ' + primary_email);
+		var currentRow=0; var cr;
+		for(currentRow=0;currentRow<result.rows.length;currentRow++){
+			cr=result.rows[currentRow].courseid +" : FROM "+  result.rows[currentRow].starttime +" TO "+ result.rows[currentRow].endtime;
+			console.log(cr);
+			slot_sat_1.push(cr);
+		}
+    }else {
+      error = err || `No record found at `;
+      //callback(error, data);
+	 // return 'no-result-found';
+    }
+
+
+
+  });
+
+  query = `select starttime,endtime,courseid from ${get_timetable} where timetabledate='Sunday' and fieldOfStudy='${get_field}' order by starttime;`;
+
+  client.query(query, function(err, result) {
+    if (!err && result.rows.length > 0){
+      // If no Error get eNumber and query studentInfoTable
+  //    let primary_email = result.rows[0].primaryemail;
+//      console.log('primaryemail = ' + primary_email);
+		var currentRow=0; var cr;
+		for(currentRow=0;currentRow<result.rows.length;currentRow++){
+			cr=result.rows[currentRow].courseid +" : FROM "+  result.rows[currentRow].starttime +" TO "+ result.rows[currentRow].endtime;
+			console.log(cr);
+			slot_sun_1.push(cr);
+		}
+    }else {
+      error = err || `No record found at `;
+      //callback(error, data);
+	  //return 'no-result-found';
+    }
+
+	  	//showing pug page, positive
+		response.render('pages/timetable', {
+		  timetable_h1: '2017',
+		  timetable_h_fieldname: get_field,
+
+		  slot_mon_1: slot_mon_1,
+		  slot_tue_1: slot_tue_1,
+		  slot_wed_1: slot_wed_1,
+		  slot_thu_1: slot_thu_1,
+		  slot_fri_1: slot_fri_1,
+		  slot_sat_1: slot_sat_1,
+		  slot_sun_1: slot_sun_1,
+
+		});
+
+  });
+
+
+}
