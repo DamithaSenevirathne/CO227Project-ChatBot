@@ -48,7 +48,10 @@ weekday[6]="Sunday";
 var query_by_time_current_time, query_by_time_previous_starttime, query_by_time_previous_endtime, table_to_query, query_by_time_date;
 
 // Date variables
-var query_by_day_current_day, query_by_day_next_day, query_by_day_previous_day;
+var query_by_day_current_day, query_by_day_next_day, query_by_day_previous_day, query_by_courseID_specified_day;
+
+// CourseID variables
+var query_by_courseID_specified_courseID;
 
 var app = express(); //getting an express instance , app?
 
@@ -74,7 +77,7 @@ app.post('/', function(request, res){
 
   /*
       =============================================================================
-      Fisrt Instance user connect to the bot with Facbook Platform
+      First Instance user connect to the bot with Facbook Platform
       Ask for the role from the user
       =============================================================================
   */
@@ -88,7 +91,7 @@ app.post('/', function(request, res){
       var firstMsg = `Hi ${firstName}`;
       res.send(JSON.stringify({'messages':
                       [{"type": 0, "speech": firstMsg},
-                       {"type": 0, "speech": "I'm a Informational Chat bot for Pera Efac"},
+                       {"type": 0, "speech": "I'm an Informational ChatBot for Pera Efac"},
                        {'title': 'To get started, tell me your role',
                         'replies': ['Lecturer', 'Instructor', 'Student'], 'type': 2}]}
 
@@ -239,7 +242,57 @@ app.post('/', function(request, res){
 
     });
   }
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /*
+      =============================================================================
+      Actions used to query timetables using the courseID and date
+      =============================================================================
+  */
 
+  // Need to query the DB using the courseID and date
+  if(action == 'ACTION_QUERY_BY_COURSEID_AND_DATE'){
+
+    let facebookID = request.body.originalRequest.data.sender.id;       // facebook id
+    query_by_courseID_specified_courseID = request.body.result.parameters.CourseID;      // courseID specified by user
+     
+    query_by_courseID_specified_day = moment(request.body.result.parameters.date).format('dddd');   // day specified by user 
+    queryByCourseID_Date(query_by_courseID_specified_courseID, query_by_courseID_specified_day,facebookID, function (err, data) {
+      if(!err){
+
+        console.log(data);
+        // Extract values from data and send to user 
+        res.send(JSON.stringify(data))
+      }else {
+        res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
+      }
+    });
+  }
+
+
+    /*
+    =============================================================================
+      Actions used to query timetables using the courseID
+    =============================================================================
+    */
+
+    // Need to query the DB using the courseID 
+    if(action == 'ACTION_QUERY_BY_COURSEID'){
+
+    let facebookID = request.body.originalRequest.data.sender.id;       // facebook id
+    query_by_courseID_specified_courseID = request.body.result.parameters.CourseID;      // courseID specified by user
+    
+    queryByCourseID(query_by_courseID_specified_courseID,facebookID, function (err, data) {
+      if(!err){
+        console.log(data);
+        // Extract values from data and send to user 
+        res.send(JSON.stringify(data))
+      }else {
+        res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
+      }
+
+    });
+  }
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 });
 
 // set the port your listening
@@ -444,6 +497,176 @@ function queryByDay(day, facebookId, callback){
 
   });
 }
+
+///////////////////////////////////////////////////////////////////////////////////////////
+/*
+  ==============================================================================
+
+  Functions used to query the DB by CourseID and date
+
+  ==============================================================================
+*/
+
+//function to query the DB by courseID and date e.g. -> When do I have CO227 tomorrow?
+function queryByCourseID_Date(CourseID, day, facebookId, callback){
+
+  console.log('======= Query By CourseID and Date =========');
+
+  //console.log(facebookID);
+  // get eNumber with facebookID
+  let query = `Select registrationnumber FROM table_user_map_chatclients WHERE facebookid='${facebookId}';`;
+
+  var error;
+  var data = {}          // empty Object
+  var key = 'messages';
+  data[key] = [];       // empty Array, which you can push() values into
+
+
+
+  client.query(query, function(err, result) {
+    if (!err && result.rows.length > 0){
+      // If no Error get eNumber and query studentInfotable
+      let eNumber = result.rows[0].registrationnumber;
+      console.log('eNumber = ' + eNumber);
+      query = `SELECT fieldofstudy, semester FROM table_user_student_feels WHERE registrationnumber='${eNumber}';`;
+
+      client.query(query, function(err, result) {
+        if (!err && result.rows.length > 0){
+          // If no Error get fieldOfStudy, Semester and query the respective table
+          let fieldOfStudy = result.rows[0].fieldofstudy;
+          let semester = result.rows[0].semester;
+          table_to_query = MAP_SEMESTER_TO_DB[semester-1];   // Since indexing is done from 0
+          console.log('table to Query = ' + table_to_query);
+          //query_by_time_date = 'Monday';
+          
+          query = `SELECT * FROM ${table_to_query} WHERE courseid='${CourseID}' AND timetabledate='${day}' ORDER BY starttime;`;
+
+          client.query(query, function(err, result) {
+
+            if (!err && result.rows.length > 0){
+              // If no error get required time and send back to the user
+              var firstMsg = {type : 0, speech : `On *${day}* you have *${CourseID}* from`}
+              data[key].push(firstMsg)
+        
+              for (var i = 0; i < result.rows.length; i++) {
+
+                let courseID = result.rows[i].courseid;
+                let startTime = moment(result.rows[i].starttime, "HH:mm:ss").format('hh:mm A');
+                let endTime = moment(result.rows[i].endtime, "HH:mm:ss").format('hh:mm A');
+
+                let msg = `_${startTime}_ - _${endTime}_\n`;
+                var course = {type : 0, speech : msg};
+
+                data[key].push(course);
+              }
+               callback(error, data);
+
+
+            }else {
+              error = err || `You don't have ${CourseID} on ${day}`;
+              callback(error, data);
+            }
+          });
+
+        }else {
+          error = err || `Seems like you're not an Efac student`;
+          callback(error, data);
+        }
+      });
+
+    }else {
+      error = err || `Looks like you are not registered yet`;
+      callback(error, data);
+    }
+
+  });
+}
+
+/*
+  ==============================================================================
+
+  Functions used to query the DB by CourseID and days
+
+  ==============================================================================
+*/
+
+//function to query the DB by courseID and days e.g. -> When do I have CO227 next week?
+function queryByCourseID(CourseID, facebookId, callback){
+
+  console.log('======= Query By CourseID =========');
+
+  //console.log(facebookID);
+  // get eNumber with facebookID
+  let query = `Select registrationnumber FROM table_user_map_chatclients WHERE facebookid='${facebookId}';`;
+
+  var error;
+  var data = {}          // empty Object
+  var key = 'messages';
+  data[key] = [];       // empty Array, which you can push() values into
+
+
+
+  client.query(query, function(err, result) {
+    if (!err && result.rows.length > 0){
+      // If no Error get eNumber and query studentInfotable
+      let eNumber = result.rows[0].registrationnumber;
+      console.log('eNumber = ' + eNumber);
+      query = `SELECT fieldofstudy, semester FROM table_user_student_feels WHERE registrationnumber='${eNumber}';`;
+
+      client.query(query, function(err, result) {
+        if (!err && result.rows.length > 0){
+          // If no Error get fieldOfStudy, Semester and query the respective table
+          let fieldOfStudy = result.rows[0].fieldofstudy;
+          let semester = result.rows[0].semester;
+          table_to_query = MAP_SEMESTER_TO_DB[semester-1];   // Since indexing is done from 0
+          console.log('table to Query = ' + table_to_query);
+          //query_by_time_date = 'Monday';
+          
+          query = `SELECT * FROM ${table_to_query} WHERE courseid='${CourseID}';`;
+
+          client.query(query, function(err, result) {
+
+            if (!err && result.rows.length > 0){
+              // If no error get required time and send back to the user
+              var firstMsg = {type : 0, speech : `You have ${CourseID} `}
+              data[key].push(firstMsg)
+              
+              for (var i = 0; i < result.rows.length; i++) {
+
+                let courseID = result.rows[i].courseid;
+                let startTime = moment(result.rows[i].starttime, "HH:mm:ss").format('hh:mm A');
+                let endTime = moment(result.rows[i].endtime, "HH:mm:ss").format('hh:mm A');
+                let timetabledate = result.rows[i].timetabledate;
+
+                let msg = `*${timetabledate}*\n_${startTime}_ - _${endTime}_`;
+                var course = {type : 0, speech : msg};
+
+                data[key].push(course);
+              }
+               callback(error, data);
+
+
+            }else {
+              error = err || `You don't have ${CourseID} on ${day}`;
+              callback(error, data);
+            }
+          });
+
+        }else {
+          error = err || `Seems like you're not an Efac student`;
+          callback(error, data);
+        }
+      });
+
+    }else {
+      error = err || `Looks like you are not registered yet`;
+      callback(error, data);
+    }
+
+  });
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////
 
 // Get user information using the facebookId
 function getFacebookData(facebookId, callback) {
