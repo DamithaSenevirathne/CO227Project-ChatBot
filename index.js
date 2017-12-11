@@ -346,6 +346,24 @@ var query_by_time_current_time, query_by_time_previous_starttime, query_by_time_
 // Date variables
 var query_by_day_current_day, query_by_day_next_day, query_by_day_previous_day;
 
+// Not Registered Error Message
+var registerNow = {
+      'data':{
+        "facebook": [{
+            "text": "Looks like you are not registered yet",
+            "quick_replies":[
+              {
+                "content_type":"text",
+                "title":"Register Now",
+                "payload":"Get started"
+              }
+            ]
+        }]
+      }
+    }
+
+console.log(moment().add(-1, 'day').format('ddddh'));
+
 var app = express(); //getting an express instance , app?
 
 app.use(bodyParser.json());
@@ -368,18 +386,51 @@ app.post('/', function(request, res){
   if(action == 'ACTION_FB_REG_GETTINGSTARTED'){
     var facebookID = request.body.originalRequest.data.sender.id;//the facebook id
     console.log(facebookID);
-	  //getFacebookData function was implemented in this js file.
-    getFacebookData(facebookID, function(err, data){
-      var firstName = data.first_name;  //first name, from the facebook account
-      var firstMsg = `Hi ${firstName}`;
-      res.send(JSON.stringify({'messages':
-                      [{"type": 0, "speech": firstMsg},
-                       {"type": 0, "speech": "I'm an Informational Chatbot for Pera Efac"},
-                       {'title': 'To get started, tell me your role',
-                        'replies': ['Lecturer', 'Instructor', 'Student'], 'type': 2}]}
 
-      ))
+    // chech wether this is a registered user
+    let query = `Select registrationnumber FROM table_user_map_chatclients WHERE facebookid='${facebookID}';`;
+
+    client.query(query, function(err, result) {
+      if (!err && result.rows.length > 0){
+        // registered User
+
+        let firstMsg = ['Hi', 'Hey'];
+
+        let randomIndex = Math.floor(Math.random() * firstMsg.length);
+        let choosenMsg1 = firstMsg[randomIndex];
+
+        let secondMsg = ['How can I help you ?',
+                         'What do you want to know ?'];
+
+        randomIndex = Math.floor(Math.random() * secondMsg.length);
+        let choosenMsg2 = secondMsg[randomIndex];
+
+        res.send(JSON.stringify({'messages':
+                        [{"type": 0, "speech": choosenMsg1},
+                         {"type": 0, "speech": choosenMsg2}]}
+        ))
+
+      }else {
+        // Not registered, send introduction message
+        //getFacebookData function was implemented in this js file.
+        getFacebookData(facebookID, function(err, data){
+          var firstName = data.first_name;  //first name, from the facebook account
+          var firstMsg = `Hi ${firstName}`;
+
+          res.send(JSON.stringify({'messages':
+                          [{"type": 0, "speech": firstMsg},
+                           {"type": 0, "speech": "I'm an Informational Chatbot for Pera Efac"},
+                           {'title': 'To get started, tell me your role',
+                            'replies': ['Lecturer', 'Instructor', 'Student'], 'type': 2}]}
+
+          ))
+
+        });
+
+      }
+
     });
+
   }
 
   if(action == 'ACTION_FB_REG_ROLE_STUDENT_ENUMBER_CONFIRMED'){ //-----------------------------------------[FB_REG_SEND_VERIFICATION]-------
@@ -418,6 +469,7 @@ app.post('/', function(request, res){
     }
 
     queryByDateAndTime(query_by_time_date, query_by_time_current_time, facebookID, function (err, data) {
+
       if(!err){
         // Extract values from data and send to user + update our reference values  moment("12:15 AM", ["h:mm A"]).format("HH:mm");
         query_by_time_previous_endtime = data.endtime;
@@ -430,8 +482,12 @@ app.post('/', function(request, res){
                          {"type": 0, "speech": `*${data.courseid}* from _${starttime}_ to _${endtime}_`}]}
 
         res.send(JSON.stringify(reply))
-      }else {
-        res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
+      }else{
+        if(err == 'NOT_REGISTERED'){
+          res.send(JSON.stringify(registerNow))
+        }else {
+          res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
+        }
       }
 
     });
@@ -442,7 +498,7 @@ app.post('/', function(request, res){
 
     let facebookID = request.body.originalRequest.data.sender.id;       // facebook id
     console.log(query_by_time_previous_endtime);
-    queryByTimeNext(query_by_time_previous_endtime, facebookID, function (err, data) {
+    queryByTimeNext(query_by_time_date, query_by_time_previous_endtime, facebookID, function (err, data) {
       if(!err){
         // Extract values from data and send to user + update our reference values
 
@@ -457,7 +513,23 @@ app.post('/', function(request, res){
 
         res.send(JSON.stringify(reply))
       }else {
-        res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
+        if(err == `That's all for ${query_by_time_date}`){
+          let nextDay;
+          getNextDay(query_by_time_date, function (data) {
+            nextDay = data;
+          });
+
+          res.send(JSON.stringify({'messages':
+                          [{'title': err,
+                            'replies': [`Show ${nextDay} Timetable`], 'type': 2}]}
+
+          ))
+
+        }else if (err == 'NOT_REGISTERED') {
+          res.send(JSON.stringify(registerNow))
+        }else {
+          res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
+        }
       }
 
     });
@@ -467,7 +539,7 @@ app.post('/', function(request, res){
 
     let facebookID = request.body.originalRequest.data.sender.id;       // facebook id
     console.log(query_by_time_previous_starttime);
-    queryByTimePrevious(query_by_time_previous_starttime, facebookID, function (err, data) {
+    queryByTimePrevious(query_by_time_date, query_by_time_previous_starttime, facebookID, function (err, data) {
       if(!err){
         // Extract values from data and send to user + update our reference values
 
@@ -482,7 +554,11 @@ app.post('/', function(request, res){
 
         res.send(JSON.stringify(reply))
       }else {
-        res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
+        if(err == 'NOT_REGISTERED'){
+          res.send(JSON.stringify(registerNow))
+        }else {
+          res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
+        }
       }
 
     });
@@ -500,7 +576,13 @@ app.post('/', function(request, res){
   if(action == 'ACTION_QUERY_BY_DAY_1'){
 
     let facebookID = request.body.originalRequest.data.sender.id;       // facebook id
-    query_by_day_current_day = moment(request.body.result.parameters.day).format('dddd');      // day user asking
+
+    if(request.body.result.parameters.day){
+      query_by_day_current_day = moment(request.body.result.parameters.day).format('dddd');
+    }else {
+      query_by_day_current_day = moment(new Date()).format('dddd');
+    }
+
     console.log('Current day = ' + query_by_day_current_day);
 
     getPreviousDay(query_by_day_current_day, function (data) {
@@ -515,7 +597,11 @@ app.post('/', function(request, res){
         // Extract values from data and send to user + update our reference values
         res.send(JSON.stringify(data))
       }else {
-        res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
+        if(err == 'NOT_REGISTERED'){
+          res.send(JSON.stringify(registerNow))
+        }else {
+          res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
+        }
       }
 
     });
@@ -538,7 +624,11 @@ app.post('/', function(request, res){
         // Extract values from data and send to user + update our reference values
         res.send(JSON.stringify(data))
       }else {
-        res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
+        if(err == 'NOT_REGISTERED'){
+          res.send(JSON.stringify(registerNow))
+        }else {
+          res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
+        }
       }
 
     });
@@ -561,7 +651,11 @@ app.post('/', function(request, res){
         // Extract values from data and send to user + update our reference values
         res.send(JSON.stringify(data))
       }else {
-        res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
+        if(err == 'NOT_REGISTERED'){
+          res.send(JSON.stringify(registerNow))
+        }else {
+          res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
+        }
       }
 
     });
@@ -577,19 +671,38 @@ app.post('/', function(request, res){
  if(action == 'ACTION_QUERY_BY_COURSEID_AND_DATE'){
 
    let facebookID = request.body.originalRequest.data.sender.id;       // facebook id
-   query_by_courseID_specified_courseID = request.body.result.parameters.CourseID;      // courseID specified by user
 
-   query_by_courseID_specified_day = moment(request.body.result.parameters.date).format('dddd');   // day specified by user
-   queryByCourseID_Date(query_by_courseID_specified_courseID, query_by_courseID_specified_day,facebookID, function (err, data) {
-     if(!err){
+   if (request.body.result.parameters.CourseID) {
 
-       console.log(data);
-       // Extract values from data and send to user
-       res.send(JSON.stringify(data))
-     }else {
-       res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
-     }
-   });
+     query_by_courseID_specified_courseID = request.body.result.parameters.CourseID;      // courseID specified by user
+     query_by_courseID_specified_day = moment(request.body.result.parameters.date).format('dddd');   // day specified by user
+
+     queryByCourseID_Date(query_by_courseID_specified_courseID, query_by_courseID_specified_day,facebookID, function (err, data) {
+       if(!err){
+
+         console.log(data);
+         // Extract values from data and send to user
+         res.send(JSON.stringify(data))
+       }else {
+         if(err == 'NOT_REGISTERED'){
+           res.send(JSON.stringify(registerNow))
+         }else {
+           res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
+         }
+       }
+     });
+   }else {
+     let courseIdNotFound = ['I think you have made a mistake in the courseID',
+                               'Check the courseID and try again',
+                               `Oops ! I don't have that course, check it again`];
+
+     let randomIndex = Math.floor(Math.random() * courseIdNotFound.length);
+     let choosenMsg = courseIdNotFound[randomIndex];
+     res.send(JSON.stringify({'messages': [{"type": 0, "speech": choosenMsg}]}
+
+     ))
+   }
+
  }
 
   /*
@@ -602,15 +715,69 @@ app.post('/', function(request, res){
     if(action == 'ACTION_QUERY_BY_COURSEID'){
 
     let facebookID = request.body.originalRequest.data.sender.id;       // facebook id
-    query_by_courseID_specified_courseID = request.body.result.parameters.CourseID;      // courseID specified by user
 
-    queryByCourseID(query_by_courseID_specified_courseID,facebookID, function (err, data) {
+    // check if the courseID is present in parameters
+    if(request.body.result.parameters.CourseID){
+      query_by_courseID_specified_courseID = request.body.result.parameters.CourseID;      // courseID specified by user
+      queryByCourseID(query_by_courseID_specified_courseID,facebookID, function (err, data) {
+        if(!err){
+          console.log(data);
+          // Extract values from data and send to user
+          res.send(JSON.stringify(data))
+        }else {
+          if(err == 'NOT_REGISTERED'){
+            res.send(JSON.stringify(registerNow))
+          }else {
+            res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
+          }
+        }
+
+      });
+    }else {
+
+      let courseIdNotFound = ['I think you have made a mistake in the courseID',
+                                'Check the courseID and try again',
+                                `Oops ! I don't have that course, check it again`];
+
+      let randomIndex = Math.floor(Math.random() * courseIdNotFound.length);
+      let choosenMsg = courseIdNotFound[randomIndex];
+      res.send(JSON.stringify({'messages': [{"type": 0, "speech": choosenMsg}]}
+
+      ))
+    }
+
+
+  }
+
+  /*
+      =============================================================================
+      Actions used to Query the Timetables by next Lecture (What do i have next ?)
+      =============================================================================
+  */
+
+
+  if(action == 'ACTION_QUERY_BY_NEXT_LECTURE'){
+
+    let facebookID = request.body.originalRequest.data.sender.id;           // facebook id
+
+    let date = moment(new Date()).format('dddd');
+    let time = new moment().format("HH:mm");
+
+    queryByNextLecture(date, time, facebookID, function (err, data) {
       if(!err){
-        console.log(data);
-        // Extract values from data and send to user
-        res.send(JSON.stringify(data))
+        let starttime = moment(data.starttime, "HH:mm:ss").format('hh:mm A');
+        let endtime = moment(data.endtime, "HH:mm:ss").format('hh:mm A');
+        var reply = {'messages':
+                        [{"type": 0, "speech": `At *${starttime}* on *${data.timetabledate}*`},
+                         {"type": 0, "speech": `you have *${data.courseid}* until _${endtime}_`}]}
+
+        res.send(JSON.stringify(reply))
       }else {
-        res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
+        if(err == 'NOT_REGISTERED'){
+          res.send(JSON.stringify(registerNow))
+        }else {
+          res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
+        }
       }
 
     });
@@ -630,11 +797,34 @@ app.post('/', function(request, res){
       if(!err){
 
         let path = 'https://vast-peak-63221.herokuapp.com/' + data;
-        var reply = {'messages': [{"type": 0, "speech": path}]}
+        var data = {
+              'data':{
+                "facebook": [{
+                    "attachment": {
+                    "type": "template",
+                    "payload": {
+                      "template_type": "button",
+                      "text":'Full Time Table',
+                      "buttons": [{
+                        "type":"web_url",
+                        "url":`${path}`,
+                        "title":"Show"
+                      }]
+                    }
+                  }
+                }]
+              }
+            }
 
-        res.send(JSON.stringify(reply))
+        //var reply = {'messages': [{"type": 0, "speech": path}]}
+
+        res.send(JSON.stringify(data))
       }else {
-        res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
+        if(err == 'NOT_REGISTERED'){
+          res.send(JSON.stringify(registerNow))
+        }else {
+          res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
+        }
       }
 
     });
@@ -667,8 +857,6 @@ function queryByCourseID_Date(CourseID, day, facebookId, callback){
   var data = {}          // empty Object
   var key = 'messages';
   data[key] = [];       // empty Array, which you can push() values into
-
-
 
   client.query(query, function(err, result) {
     if (!err && result.rows.length > 0){
@@ -722,7 +910,7 @@ function queryByCourseID_Date(CourseID, day, facebookId, callback){
       });
 
     }else {
-      error = err || `Looks like you are not registered yet`;
+      error = err || 'NOT_REGISTERED';
       callback(error, data);
     }
 
@@ -731,7 +919,7 @@ function queryByCourseID_Date(CourseID, day, facebookId, callback){
 
 /*
   ==============================================================================
-  Functions used to query the DB by CourseID and days
+  Functions used to query the DB by CourseID
   ==============================================================================
 */
 
@@ -804,7 +992,89 @@ function queryByCourseID(CourseID, facebookId, callback){
       });
 
     }else {
-      error = err || `Looks like you are not registered yet`;
+      error = err || 'NOT_REGISTERED';
+      callback(error, data);
+    }
+
+  });
+}
+
+/*
+  ==============================================================================
+
+  Functions used to query the DB by Next Lecture (When is the next Lecture)
+
+  ==============================================================================
+*/
+
+function queryByNextLecture(date, time, facebookId, callback){
+
+  console.log('======= Query By Next Lecture =========');
+
+  let query = `Select registrationnumber FROM table_user_map_chatclients WHERE facebookid='${facebookId}';`;
+
+  var error, data, query_date = date, query_time = time;
+
+  client.query(query, function(err, result) {
+    if (!err && result.rows.length > 0){
+      // If no Error get eNumber and query studentInfotable
+      let eNumber = result.rows[0].registrationnumber;
+      console.log('eNumber = ' + eNumber);
+      query = `Select fieldofstudy, semester FROM table_user_student_feels WHERE registrationnumber='${eNumber}';`;
+
+      client.query(query, function(err, result) {
+        if (!err && result.rows.length > 0){
+          // If no Error get fieldOfStudy, Semester and query the respective table
+          let fieldOfStudy = result.rows[0].fieldofstudy;
+          let semester = result.rows[0].semester;
+          table_to_query = MAP_SEMESTER_TO_DB[semester-1];   // Since indexing is done from 0
+          console.log('table to Query = ' + table_to_query);
+
+          query = `Select * FROM ${table_to_query} WHERE timetabledate='${query_date}' AND starttime>='${query_time}' ORDER BY starttime;`;
+
+          client.query(query, function(err, result) {
+
+            if (!err && result.rows.length > 0){
+              // If no Error give the data to the user
+              console.log(result.rows);
+              data = result.rows[0];
+              callback(error, data);
+
+            }else {
+              // Go to next day and query
+              getNextDay(query_date, function (data) {
+                query_date = data;
+              });
+              query_time = '00:00:00';
+
+              query = `Select * FROM ${table_to_query} WHERE timetabledate='${query_date}' AND starttime>='${query_time}' ORDER BY starttime;`;
+              console.log('date & time changed... ' + query_date + " " + query_time);
+              client.query(query, function(err, result) {
+
+                if (!err && result.rows.length > 0){
+                  // If no Error give the data to the user
+                  data = result.rows[0];
+                  callback(error, data);
+
+                }else {
+                  // Go to next day and query
+                  getNextDay(query_date, function (data) {
+                    query_date = data;
+                  });
+                  query_time = '00:00:00';
+                }
+              });
+            }
+          });
+
+        }else {
+          error = err || `Seems like you're not an Efac student`;
+          callback(error, data);
+        }
+      });
+
+    }else {
+      error = err || 'NOT_REGISTERED';
       callback(error, data);
     }
 
@@ -870,7 +1140,7 @@ function queryByDateAndTime(date, time, facebookId, callback){
       });
 
     }else {
-      error = err || `Looks like you are not registered yet`;
+      error = err || 'NOT_REGISTERED';
       callback(error, data);
     }
 
@@ -878,13 +1148,13 @@ function queryByDateAndTime(date, time, facebookId, callback){
 }
 
 //function to query the DB by time(user say next followed by 1st query)  e.g -> What do i have at 2pm ? Next ?
-function queryByTimeNext(time, facebookId, callback){
+function queryByTimeNext(date, time, facebookId, callback){
 
   console.log('======= Query By Time Next =========');
 
   var error, data;
 
-  query = `Select * FROM ${table_to_query} WHERE timetabledate='${query_by_time_date}' AND starttime>='${time}' order by starttime;`;
+  query = `Select * FROM ${table_to_query} WHERE timetabledate='${date}' AND starttime>='${time}' order by starttime;`;
 
   client.query(query, function(err, result) {
 
@@ -903,13 +1173,13 @@ function queryByTimeNext(time, facebookId, callback){
 }
 
 //function to query the DB by time(user say previous followed by 1st query)  e.g -> What do i have at 2pm ? Before it ?
-function queryByTimePrevious(time, facebookId, callback){
+function queryByTimePrevious(date, time, facebookId, callback){
 
 console.log('======= Query By Time Before =========');
 
 var error, data;
 
-query = `Select * FROM ${table_to_query} WHERE timetabledate='${query_by_time_date}' AND endtime<='${time}' order by endtime DESC;`;
+query = `Select * FROM ${table_to_query} WHERE timetabledate='${date}' AND endtime<='${time}' order by endtime DESC;`;
 
 client.query(query, function(err, result) {
 
@@ -1004,7 +1274,7 @@ function queryByDay(day, facebookId, callback){
       });
 
     }else {
-      error = err || `Looks like you are not registered yet`;
+      error = err || 'NOT_REGISTERED';
       callback(error, data);
     }
 
@@ -1055,7 +1325,7 @@ function queryFullTimeTable(facebookId, callback){
       });
 
     }else {
-      error = err || `Looks like you are not registered yet`;
+      error = err || 'NOT_REGISTERED';
       callback(error, data);
     }
 
@@ -1459,6 +1729,5 @@ function db_query_show_timetable(get_timetable,get_field,response){
 		});
 
   });
-
 
 }
