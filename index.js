@@ -1492,3 +1492,70 @@ function db_query_show_timetable(get_timetable,get_field,response){
 
 
 }
+
+
+//--------------------------------------------------------------------------------------------[Show full course details]
+app.get(
+	'/course-detail',
+	function (request, response) {
+		console.log('===== time table =====');
+
+		//get request parameters
+		var get_courseid= request.query.courseid;//$_GET["courseid"] ?courseid=ef301
+		var get_tablename='table_course_general';
+		
+		db_query_show_course_detail(get_courseid,get_tablename,response);
+
+	}
+);
+
+function db_query_show_course_detail(get_courseid,get_tablename,response){
+
+  console.log('======= db_query_show_course_detail =========');
+
+  var res_course_id=get_courseid.toUpperCase();
+  
+  query = `select coursename, coursedescription, coursecredits from ${get_tablename} where courseid='${res_course_id}'`;
+  console.log(query);
+
+  var res_course_id=get_courseid.toUpperCase();
+  var res_course_name='';
+  var res_course_description='';
+  //var res_course_credits='';
+  
+  
+  client.query(query, function(err, result) {
+    if (!err && result.rows.length > 0){
+      // If no Error get eNumber and query studentInfoTable
+
+		res_course_name=result.rows[0].coursename;
+		res_course_description=result.rows[0].coursedescription;
+		//res_course_credits=result.rows[0].coursecredits;
+		console.log('found result');
+		
+	  
+    }else {
+      error = err || `No record found at general electives : db_query_show_course_detail`;
+      //callback(error, data);
+	  //return 'no-result-found';
+	  
+	  console.log('error:'+error);
+	  
+	 
+		
+    }
+	
+	  //showing pug page, positive
+		response.render('pages/coursedetail', {
+		  course_id:res_course_id,
+		  course_name:res_course_name,
+		  course_description:res_course_description,
+		  //course_credits:res_course_credits
+		});
+	
+	
+  });
+  
+ 
+		
+}
