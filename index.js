@@ -362,8 +362,6 @@ var registerNow = {
       }
     }
 
-console.log(moment().add(-1, 'day').format('ddddh'));
-
 var app = express(); //getting an express instance , app?
 
 app.use(bodyParser.json());
@@ -829,6 +827,90 @@ app.post('/', function(request, res){
 
     });
 
+  }
+
+
+  /*
+      =============================================================================
+      Actions used to give course Info
+      =============================================================================
+  */
+
+  if(action == 'ACTION_COURSE_INFO'){
+
+    let courseID = request.body.result.parameters.CourseID;           // course id
+
+    generalCourseInfo(courseID, function (err, data) {
+      if(!err){
+
+        let path = 'https://vast-peak-63221.herokuapp.com/course-detail?courseid=' + courseID;
+        /*var data = {
+              'data':{
+                "facebook": [{
+                    "attachment": {
+                    "type": "template",
+                    "payload": {
+                      "template_type": "button",
+                      "text": data,
+                      "buttons": [{
+                        "type":"web_url",
+                        "url":`${path}`,
+                        "title":"Read More"
+                      }]
+                    }
+                  }
+                }]
+              }
+            }*/
+
+            var bucket = 'Categorized under,\n';
+
+            if(data.courseart){
+              bucket += 'Arts and Humanities\n';
+            }
+            if(data.coursemanagement){
+              bucket += 'Management and Economics\n';
+            }
+            if(data.coursesocial){
+              bucket += 'Political and Social Sciences\n';
+            }
+
+            var title = data.courseid + " - " + data.coursename
+            var description = `Credits = ${data.coursecredits}\n${bucket}`
+
+            var data = {
+                  'data':{
+                    "facebook": [{
+                        "attachment": {
+                        "type": "template",
+                        "payload": {
+                          "template_type": "generic",
+                          "elements":[{
+                            "title": title,
+                            "subtitle": description,
+                            "buttons":[{
+                              "type":"web_url",
+                              "url":`${path}`,
+                              "title":"Read More"
+                            }]
+                            }
+                          ]
+                        }
+                      }
+                    }]
+                  }
+                }
+
+        //var reply = {'messages': [{"type": 0, "speech": path}]}
+
+        res.send(JSON.stringify(data))
+
+         //res.send(JSON.stringify({'messages': [{"type": 0, "speech": data}]}))
+      }else {
+         res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
+      }
+
+    });
   }
 
 });
@@ -1332,6 +1414,36 @@ function queryFullTimeTable(facebookId, callback){
   });
 }
 
+/*
+
+
+*/
+
+//function to query the DB by time(user say previous followed by 1st query)  e.g -> What do i have at 2pm ? Before it ?
+function generalCourseInfo(courseId, callback){
+
+console.log('======= Course Info = ' + courseId);
+
+var error, data;
+
+query = `Select * FROM table_course_general WHERE courseid='${courseId}';`;
+
+client.query(query, function(err, result) {
+
+  if (!err && result.rows.length > 0){
+    // If no Error get courseId, startTime, endTime and send back to the user
+    console.log(result.rows);
+    data = result.rows[0];
+    callback(error, data);
+
+  }else {
+    error = err || `No course Found !`;
+    callback(error, data);
+  }
+});
+
+}
+
 // Get user information using the facebookId
 function getFacebookData(facebookId, callback) {
 
@@ -1492,6 +1604,48 @@ app.get('/shortSem', function (request, response) {
 		  		timeTableList.push(course);
 	  	}
 	  	response.render('pages/shortSem', {"timeTableList": timeTableList});  // use the shortSem.pug file to show data
+    }
+  });
+});
+
+// function to check general electives
+// here when user, requests <host>/generalElectives this function triggers.
+app.get('/generalElectives', function (request, response) {
+
+    console.log('===== db_query =====');
+
+    var courseList = [];
+
+    client.query('SELECT * FROM table_course_general', function(err, result) {
+      if (err){
+        console.error(err); response.send("Error " + err);
+      }else{
+        //console.log(result.rows);
+	  		for (var i = 0; i < result.rows.length; i++) {
+
+          var bucket = '';
+
+          if(result.rows[i].courseart){
+            bucket += 'A ';
+          }
+          if(result.rows[i].coursemanagement){
+            bucket += 'M ';
+          }
+          if(result.rows[i].coursesocial){
+            bucket += 'P ';
+          }
+
+		  		var course = {
+		  			'courseID':result.rows[i].courseid,
+		  			'courseName':result.rows[i].coursename,
+		  			'category':bucket,
+		  			'credits':result.rows[i].coursecredits,
+            'sem':result.rows[i].courseofferedsem
+		  		}
+
+		  		courseList.push(course);
+	  	}
+	  	response.render('pages/generalElectives', {"courseList": courseList});  // use the shortSem.pug file to show data
     }
   });
 });
