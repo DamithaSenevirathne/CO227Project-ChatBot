@@ -844,25 +844,6 @@ app.post('/', function(request, res){
       if(!err){
 
         let path = 'https://vast-peak-63221.herokuapp.com/course-detail?courseid=' + courseID;
-        /*var data = {
-              'data':{
-                "facebook": [{
-                    "attachment": {
-                    "type": "template",
-                    "payload": {
-                      "template_type": "button",
-                      "text": data,
-                      "buttons": [{
-                        "type":"web_url",
-                        "url":`${path}`,
-                        "title":"Read More"
-                      }]
-                    }
-                  }
-                }]
-              }
-            }*/
-
             var bucket = 'Categorized under,\n';
 
             if(data.courseart){
@@ -911,6 +892,16 @@ app.post('/', function(request, res){
       }
 
     });
+  }
+
+  /*
+      =============================================================================
+      Actions used to give a combination of General Electives
+      =============================================================================
+  */
+
+  if(action == 'ACTION_COMPLETE_ALL_IN_SEM5'){
+    
   }
 
 });
