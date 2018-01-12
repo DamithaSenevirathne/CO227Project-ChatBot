@@ -330,6 +330,15 @@ const MAP_SEMESTER_TO_DB = [
    	"table_current_semester_shortsem6"
 ];
 
+// General Elective bucket limits
+const CREDITS_BUCKET_ART = 2;
+const CREDITS_BUCKET_MANAGEMENT = 5;
+const CREDITS_BUCKET_SOCIAL = 2;
+
+// Array to keep GE courses
+var courseManagementBucket=[], courseArtBucket=[], courseSocialBucket=[], courseCommonBucket=[];
+
+
 // Array to hold the week days
 var weekday=new Array(7);
 weekday[0]="Monday";
@@ -901,7 +910,220 @@ app.post('/', function(request, res){
   */
 
   if(action == 'ACTION_COMPLETE_ALL_IN_SEM5'){
-    
+
+      queryAllGEs(function (err, data) {
+
+        if(!err){
+          giveGECombination(function (err, data) {
+            if(!err){
+
+              var bucketArt=`*Arts and Humanities* (${CREDITS_BUCKET_ART})\n`,
+                  bucketSocial=`*Political and Social Sciences* (${CREDITS_BUCKET_SOCIAL})\n`,
+                  bucketManagement=`*Management and Economics* (${CREDITS_BUCKET_MANAGEMENT})\n`;
+
+              for (var j = 0; j < data[0].length; j++) {
+                var course = data[0][j];
+                bucketArt += `_${course.courseid}_ - ${course.coursename} (${course.coursecredits})\n`
+              }
+
+              for (var j = 0; j < data[1].length; j++) {
+                var course = data[1][j];
+                bucketSocial += `_${course.courseid}_ - ${course.coursename} (${course.coursecredits})\n`
+              }
+
+              for (var j = 0; j < data[2].length; j++) {
+                var course = data[2][j];
+                bucketManagement += `_${course.courseid}_ - ${course.coursename} (${course.coursecredits})\n`
+              }
+
+              var reply = {'messages':
+                              [{"type": 0, "speech": bucketArt},
+                               {"type": 0, "speech": bucketSocial},
+                                {"type": 0, "speech": bucketManagement}]}
+
+              res.send(JSON.stringify(reply))
+
+            }else {
+              var reply = {'messages':
+                              [{"type": 0, "speech": ':('},
+                                {"type": 0, "speech": 'No comination is possible'}]}
+
+              res.send(JSON.stringify(reply))
+            }
+          });
+        }else {
+          var reply = {'messages':
+                          [{"type": 0, "speech": ':( Sorry'},
+                            {"type": 0, "speech": 'Problem in the Database, Try Later'}]}
+
+          res.send(JSON.stringify(reply))
+        }
+      });
+  }
+
+  if(action == 'ACTION_ANOTHER_COMBINATION'){
+    giveGECombination(function (err, data) {
+      if(!err){
+
+        var bucketArt=`*Arts and Humanities* (${CREDITS_BUCKET_ART})\n`,
+            bucketSocial=`*Political and Social Sciences* (${CREDITS_BUCKET_SOCIAL})\n`,
+            bucketManagement=`*Management and Economics* (${CREDITS_BUCKET_MANAGEMENT})\n`;
+
+        for (var j = 0; j < data[0].length; j++) {
+          var course = data[0][j];
+          bucketArt += `_${course.courseid}_ - ${course.coursename} (${course.coursecredits})\n`
+        }
+
+        for (var j = 0; j < data[1].length; j++) {
+          var course = data[1][j];
+          bucketSocial += `_${course.courseid}_ - ${course.coursename} (${course.coursecredits})\n`
+        }
+
+        for (var j = 0; j < data[2].length; j++) {
+          var course = data[2][j];
+          bucketManagement += `_${course.courseid}_ - ${course.coursename} (${course.coursecredits})\n`
+        }
+
+        var reply = {'messages':
+                        [{"type": 0, "speech": bucketArt},
+                         {"type": 0, "speech": bucketSocial},
+                          {"type": 0, "speech": bucketManagement}]}
+
+        res.send(JSON.stringify(reply))
+
+      }else {
+        var reply = {'messages':
+                        [{"type": 0, "speech": ':('},
+                          {"type": 0, "speech": 'No other cominations are possible'}]}
+
+        res.send(JSON.stringify(reply))
+      }
+    });
+  }
+
+  /*
+      =============================================================================
+      Actions used to drop a General Elective
+      =============================================================================
+  */
+
+  if(action == 'ACTION_DROP_GE'){
+
+    var changeCourse = request.body.result.parameters.CourseID;
+
+    for (var i = 0; i < changeCourse.length; i++) {
+
+      var alternatives = `You can replace *${changeCourse[i]}* with\n`
+
+      checkDropCourseBucket(changeCourse[i], function (err, data) {
+        if(!err){
+          if(data[0] == 'art'){
+            dropArtBucketCourse(changeCourse[i], data[1], function (err, data) {
+              if(!err){
+                for (var i = 0; i < data.length; i++) {
+                  let course = data[i];
+                  alternatives += `_${course.courseid}_ - ${course.coursename} (${course.coursecredits})\n`
+                }
+              }else {
+                alternatives = err;
+              }
+
+            })
+          }else if (data[0] = 'social') {
+            // check for alternatives in Social Bucket
+            dropSocialBucketCourse(changeCourse[i], data[1], function (err, data) {
+              if(!err){
+                for (var i = 0; i < data.length; i++) {
+                  let course = data[i];
+                  alternatives += `_${course.courseid}_ - ${course.coursename} (${course.coursecredits})\n`
+                }
+              }else {
+                alternatives = err;
+              }
+            })
+          }else {
+            // check for alternatives in Management Bucket
+            dropManagementBucketCourse(changeCourse[i], data[1], function (err, data) {
+              if(!err){
+                for (var i = 0; i < data.length; i++) {
+                  let course = data[i];
+                  alternatives += `_${course.courseid}_ - ${course.coursename} (${course.coursecredits})\n`
+                }
+              }else {
+                alternatives = err;
+              }
+            })
+          }
+        }
+      })
+    }
+
+    var reply = {'messages':
+                    [{"type": 0, "speech": alternatives}]}
+
+    res.send(JSON.stringify(reply))
+
+  }
+
+  /*
+      =============================================================================
+      Actions used to add a General Elective
+      =============================================================================
+  */
+
+  if(action == 'ACTION_ADD_GE'){
+
+    var addCourse = request.body.result.parameters.CourseID;
+
+    var addArtCourseList = [], addSocialCourseList = [], addManagementCourseList = [];
+
+    for (var i = 0; i < addCourse.length; i++) {
+      checkAddCourseBucket(addCourse[i], function (err, data) {
+        if(!err){
+          if(data[0] == 'art'){
+            let course = [addCourse[i], data[1]];
+            addArtCourseList.push(course);
+          }else if (data[0] == 'social') {
+            let course = [addCourse[i], data[1]];
+            addSocialCourseList.push(course);
+          }else if (data[0] == 'management'){
+            let course = [addCourse[i], data[1]];
+            addManagementCourseList.push(course);
+          }else {
+            console.log('Common Course');
+          }
+        }
+      })
+    }
+
+
+
+    if(addArtCourseList.length > 0){
+      addArtBucketCourse(addArtCourseList, function (err, data) {
+        if(data == 'OK'){
+
+          var reply = {'messages' : []};
+          let msg = {"type": 0, "speech": ":)"};
+          let msg2 = {"type": 0, "speech": `Great Choice, you can have it under Art Category`}
+
+          reply.messages.push(msg)
+          reply.messages.push(msg2)
+          // var reply = {'messages':
+          //                 [{"type": 0, "speech": ":)"},
+          //                  {"type": 0, "speech": `Great Choice, you can have it under Art Category`}]}
+
+          res.send(JSON.stringify(reply))
+        }else {
+          var reply = {'messages':
+                          [{"type": 0, "speech": ":("},
+                           {"type": 0, "speech": `${addCourse} alone wont cover the required credits`},
+                           {"type": 0, "speech": "Select more courses"}]}
+
+          res.send(JSON.stringify(reply))
+        }
+      })
+    }
+
   }
 
 });
@@ -909,7 +1131,6 @@ app.post('/', function(request, res){
 // set the port your listening
 app.listen(PORT);
 console.log('listening to port : ' + PORT);
-
 
 /*
   ==============================================================================
@@ -1053,7 +1274,8 @@ function queryByCourseID(CourseID, facebookId, callback){
 
 
             }else {
-              error = err || `You don't have ${CourseID} on ${day}`;
+              //error = err || `You don't have ${CourseID} on ${day}`;
+              error = err || `I don't have ${CourseID}, Seems like you have made a mistake`;
               callback(error, data);
             }
           });
@@ -1406,11 +1628,13 @@ function queryFullTimeTable(facebookId, callback){
 }
 
 /*
+  ==============================================================================
 
+  Functions used to give General Elective Course Information
 
+  ==============================================================================
 */
 
-//function to query the DB by time(user say previous followed by 1st query)  e.g -> What do i have at 2pm ? Before it ?
 function generalCourseInfo(courseId, callback){
 
 console.log('======= Course Info = ' + courseId);
@@ -1428,11 +1652,550 @@ client.query(query, function(err, result) {
     callback(error, data);
 
   }else {
-    error = err || `No course Found !`;
+    error = err || `Sorry, No course Found !`;
     callback(error, data);
   }
 });
 
+}
+
+/*
+  ==============================================================================
+
+  Functions used to give a combination of General Electives
+
+  ==============================================================================
+*/
+
+/* Query the DB and add to the courses to an array */
+
+function queryAllGEs(callback) {
+
+  var error, data;
+
+  console.log("======= Query Electives ======");
+
+  var queryAllBucket = `Select courseid, coursename, coursecredits FROM table_course_general WHERE coursesem='short' AND coursemanagement='t' AND courseart='t' AND coursesocial='t';`;
+
+  client.query(queryAllBucket, function(err, result) {
+
+    if (!err){
+      // If no Error get the data and add to bucket
+      for (var i = 0; i < result.rows.length; i++) {
+        var course = result.rows[i];
+        course['selected'] = 'N';
+        course['art'] = 't';
+        course['social'] = 't';
+        course['management'] = 't';
+        courseCommonBucket.push(course);
+      }
+
+      var queryArtANDSocialBucket = `Select courseid, coursename, coursecredits FROM table_course_general WHERE coursesem='short' AND coursemanagement='f' AND courseart='t' AND coursesocial='t';`;
+
+      client.query(queryArtANDSocialBucket, function(err, result) {
+
+        if (!err){
+          // If no Error get the data and add to bucket
+          for (var i = 0; i < result.rows.length; i++) {
+            var course = result.rows[i];
+            course['selected'] = 'N';
+            course['art'] = 't';
+            course['social'] = 't';
+            course['management'] = 'f';
+            courseCommonBucket.push(course);
+          }
+
+          var queryArtANDManagementBucket = `Select courseid, coursename, coursecredits FROM table_course_general WHERE coursesem='short' AND coursemanagement='t' AND courseart='t' AND coursesocial='f';`;
+
+          client.query(queryArtANDManagementBucket, function(err, result) {
+
+            if (!err){
+              // If no Error get the data and add to bucket
+              for (var i = 0; i < result.rows.length; i++) {
+                var course = result.rows[i];
+                course['selected'] = 'N';
+                course['art'] = 't';
+                course['social'] = 'f';
+                course['management'] = 't';
+                courseCommonBucket.push(course);
+              }
+
+              var querySocialANDManagementBucket = `Select courseid, coursename, coursecredits FROM table_course_general WHERE coursesem='short' AND coursemanagement='t' AND courseart='f' AND coursesocial='t';`;
+
+              client.query(querySocialANDManagementBucket, function(err, result) {
+
+                if (!err){
+
+                  // If no Error get the data and add to bucket
+                  for (var i = 0; i < result.rows.length; i++) {
+                    var course = result.rows[i];
+                    course['selected'] = 'N';
+                    course['art'] = 'f';
+                    course['social'] = 't';
+                    course['management'] = 't';
+                    courseCommonBucket.push(course);
+                  }
+
+                  var queryManagementBucket = `Select courseid, coursename, coursecredits FROM table_course_general WHERE coursesem='short' AND coursemanagement='t' AND courseart='f' AND coursesocial='f';`;
+
+                  client.query(queryManagementBucket, function(err, result) {
+
+                    if (!err){
+
+                      // If no Error get the data and add to bucket
+                      for (var i = 0; i < result.rows.length; i++) {
+                        var course = result.rows[i];
+                        course['selected'] = 'N';
+                        courseManagementBucket.push(course);
+                      }
+
+                      var queryArtBucket = `Select courseid, coursename, coursecredits FROM table_course_general WHERE coursesem='short' AND coursemanagement='f' AND courseart='t' AND coursesocial='f';`;
+
+                      client.query(queryArtBucket, function(err, result) {
+
+                        if (!err){
+                          // If no Error get the data and add to bucket
+                          for (var i = 0; i < result.rows.length; i++) {
+                            var course = result.rows[i];
+                            course['selected'] = 'N';
+                            courseArtBucket.push(course);
+                          }
+
+                          var querySocialBucket = `Select courseid, coursename, coursecredits FROM table_course_general WHERE coursesem='short' AND coursemanagement='f' AND courseart='f' AND coursesocial='t';`;
+
+                          client.query(querySocialBucket, function(err, result) {
+
+                            if (!err){
+
+                              // If no Error get the data and add to bucket
+                              for (var i = 0; i < result.rows.length; i++) {
+                                var course = result.rows[i];
+                                course['selected'] = 'N';
+                                courseSocialBucket.push(course);
+                              }
+                              callback(error, data);
+
+                            }else {
+                              error = err || 'Social Bucket query failed !';
+                              callback(error, data);
+                            }
+                          });
+
+                        }else {
+                          error = err || 'Art Bucket query failed !';
+                          callback(error, data);
+                        }
+                      });
+
+                    }else {
+                      error = err || 'Management Bucket query failed !';
+                      callback(error, data);
+                    }
+                  });
+
+                }else {
+                  error = err || 'Common(Social_Mang) Bucket query failed !';
+                  callback(error, data);
+                }
+              });
+
+            }else {
+              error = err || 'Common(Art_Mang) Bucket query failed !';
+              callback(error, data);
+            }
+          });
+
+        }else {
+          error = err || 'Common(Art_Social) Bucket query failed !';
+          callback(error, data);
+        }
+      });
+
+    }else {
+      error = err || 'Common(3) Bucket query failed !';
+      callback(error, data);
+    }
+  });
+
+}
+
+//HowIneedToCompleteTheElectives
+/* Give a combination from the array of courses */
+
+var selectedArtBucket=[], selectedSocialBucket=[], selectedManagementBucket=[];
+var previousSelectedArtBucket=[], previousSelectedSocialBucket=[], previousSelectedManagementBucket=[];
+
+function giveGECombination(callback) {
+
+  console.log("Combination started !");
+
+  var data=[], err;
+  selectedArtBucket=[]; selectedSocialBucket=[]; selectedManagementBucket=[];
+  var creditArt = 0, creditManagement = 0, creditSocial = 0, count = 0;
+
+  /* ----------  Fill the Art Bucket  ---------- */
+
+  while (creditArt < CREDITS_BUCKET_ART && count < courseArtBucket.length) {
+    let course = courseArtBucket[count];
+    if(course.selected == 'N'){
+
+      let selectedCourse = {'courseid' : course.courseid,
+                            'coursename' : course.coursename,
+                            'coursecredits' : course.coursecredits}
+      selectedArtBucket.push(selectedCourse);
+      courseArtBucket[count].selected = 'Y';
+      creditArt += course.coursecredits;
+
+    }else {
+      courseArtBucket[count].selected = 'N';
+    }
+    count++;
+  }
+
+  /* ----------  Fill the Social Bucket  ---------- */
+  count = 0;
+  while (creditSocial < CREDITS_BUCKET_SOCIAL && count < courseSocialBucket.length) {
+    let course = courseSocialBucket[count];
+    if(course.selected == 'N'){
+      let selectedCourse = {'courseid' : course.courseid,
+                            'coursename' : course.coursename,
+                            'coursecredits' : course.coursecredits}
+      selectedSocialBucket.push(selectedCourse);
+      courseSocialBucket[count].selected = 'Y';
+      creditSocial += course.coursecredits;
+
+    }else {
+      courseSocialBucket[count].selected = 'N';
+    }
+    count++;
+  }
+
+  /* ----------  Fill the Management Bucket  ---------- */
+  count = 0;
+  while (creditManagement < CREDITS_BUCKET_MANAGEMENT && count < courseManagementBucket.length) {
+    let course = courseManagementBucket[count];
+    if(course.selected == 'N'){
+      let selectedCourse = {'courseid' : course.courseid,
+                            'coursename' : course.coursename,
+                            'coursecredits' : course.coursecredits}
+      selectedManagementBucket.push(selectedCourse);
+      courseManagementBucket[count].selected = 'Y';
+      creditManagement += course.coursecredits;
+
+    }else {
+      courseManagementBucket[count].selected = 'N';
+    }
+    count++;
+  }
+
+
+  /* Check if any bucket is not filled
+      - Use the Common bucket to fill up those
+  */
+
+  if(creditArt < CREDITS_BUCKET_ART){
+    /*if(creditSocial >= CREDITS_BUCKET_SOCIAL){
+      count = 0;
+      while (creditArt < CREDITS_BUCKET_ART && count < courseCommonBucket.length) {
+        if(courseCommonBucket[count].selected = 'N' && courseCommonBucket[count].art = 't' && courseCommonBucket[count].social = 't'){
+          let course = courseCommonBucket[count];
+          let selectedCourse = {'courseid' : course.courseid,
+                                'coursename' : course.coursename}
+          selectedArtBucket.push(selectedCourse);
+          courseCommonBucket[count].selected = 'Y';
+          creditArt += course.coursecredits;
+        }
+        count++;
+      }
+    }*/
+
+    count = 0;
+    while (creditArt < CREDITS_BUCKET_ART && count < courseCommonBucket.length) {
+      if(courseCommonBucket[count].selected == 'N' && courseCommonBucket[count].art == 't'){
+        let course = courseCommonBucket[count];
+        let selectedCourse = {'courseid' : course.courseid,
+                              'coursename' : course.coursename,
+                              'coursecredits' : course.coursecredits}
+        selectedArtBucket.push(selectedCourse);
+        courseCommonBucket[count].selected = 'Y';
+        creditArt += course.coursecredits;
+      }
+      count++;
+    }
+  }
+
+  if(creditSocial < CREDITS_BUCKET_SOCIAL){
+    count = 0;
+    while (creditSocial < CREDITS_BUCKET_SOCIAL && count < courseCommonBucket.length) {
+      if(courseCommonBucket[count].selected == 'N' && courseCommonBucket[count].social == 't'){
+        let course = courseCommonBucket[count];
+        let selectedCourse = {'courseid' : course.courseid,
+                              'coursename' : course.coursename,
+                              'coursecredits' : course.coursecredits}
+        selectedSocialBucket.push(selectedCourse);
+        courseCommonBucket[count].selected = 'Y';
+        creditSocial += course.coursecredits;
+      }
+      count++;
+    }
+  }
+
+  if(creditManagement < CREDITS_BUCKET_MANAGEMENT){
+    count = 0;
+    while (creditManagement < CREDITS_BUCKET_MANAGEMENT && count < courseCommonBucket.length) {
+      if(courseCommonBucket[count].selected == 'N' && courseCommonBucket[count].management == 't'){
+        let course = courseCommonBucket[count];
+        let selectedCourse = {'courseid' : course.courseid,
+                              'coursename' : course.coursename,
+                              'coursecredits' : course.coursecredits}
+        selectedManagementBucket.push(selectedCourse);
+        courseCommonBucket[count].selected = 'Y';
+        creditManagement += course.coursecredits;
+      }
+      count++;
+    }
+  }
+
+  if(creditArt < CREDITS_BUCKET_ART || creditSocial < CREDITS_BUCKET_SOCIAL || creditManagement < CREDITS_BUCKET_MANAGEMENT){
+    err = 'NO_COMBINATIONS';
+  }else {
+
+    data.push(selectedArtBucket);
+    data.push(selectedSocialBucket);
+    data.push(selectedManagementBucket);
+
+    previousSelectedArtBucket = selectedArtBucket;
+    previousSelectedSocialBucket = selectedSocialBucket;
+    previousSelectedManagementBucket = selectedManagementBucket;
+
+  }
+
+  // console.log('----- ART -------');
+  // console.log(selectedArtBucket);
+  // console.log('----- SOCIAL -------');
+  // console.log(selectedSocialBucket);
+  // console.log('----- Management -------');
+  // console.log(selectedManagementBucket);
+
+  callback(err, data);
+
+}
+
+/*
+  Function to give alternatives for Art Bucket
+  When user ask to drop some course
+*/
+
+var creditArt = 0;          // current credits after the course is dropped
+
+function dropArtBucketCourse(courseID, courseCredits, callback) {
+
+  var data=[], error, count = 0;
+
+  if(CREDITS_BUCKET_ART - courseCredits < 0){
+    creditArt = 0;
+  }else {
+    creditArt = CREDITS_BUCKET_ART - courseCredits;;
+  }
+
+  while (count < courseArtBucket.length) {
+    if(courseArtBucket[count].selected == 'N'){
+      let course = courseArtBucket[count];
+      let selectedCourse = {'courseid' : course.courseid,
+                            'coursename' : course.coursename,
+                            'coursecredits' : course.coursecredits}
+
+      data.push(selectedCourse);
+      //creditArt += course.coursecredits;
+    }else {
+      courseArtBucket[count].selected = 'N';
+    }
+    count++;
+  }
+  count = 0;
+  while (count < courseCommonBucket.length) {
+    if(courseCommonBucket[count].selected == 'N' && courseCommonBucket[count].art == 't'){
+      let course = courseCommonBucket[count];
+      let selectedCourse = {'courseid' : course.courseid,
+                            'coursename' : course.coursename,
+                            'coursecredits' : course.coursecredits}
+      data.push(selectedCourse);
+      //creditArt += course.coursecredits;
+    }else if (courseCommonBucket[count].selected == 'Y' && courseCommonBucket[count].art == 't') {
+      courseCommonBucket[count].selected = 'N';
+    }
+    count++;
+  }
+
+  if(data.length < 1){
+    error = 'Sorry :( , this is the only course under Art Category';
+  }
+  callback(error, data);
+}
+
+/*
+  Function to give alternatives for Social Bucket
+  When user ask to drop some course
+*/
+
+var creditSocial = 0;          // current credits after the course is dropped
+
+function dropSocialBucketCourse(courseID, courseCredits, callback) {
+
+  var data=[], error, count = 0;
+
+  if(CREDITS_BUCKET_SOCIAL - courseCredits < 0){
+    creditSocial = 0;
+  }else {
+    creditSocial = CREDITS_BUCKET_SOCIAL - courseCredits;;
+  }
+
+  while (count < courseSocialBucket.length) {
+    if(courseSocialBucket[count].selected == 'N'){
+      let course = courseSocialBucket[count];
+      let selectedCourse = {'courseid' : course.courseid,
+                            'coursename' : course.coursename,
+                            'coursecredits' : course.coursecredits}
+
+      data.push(selectedCourse);
+      //creditSocial += course.coursecredits;
+    }else {
+      courseSocialBucket[count].selected = 'N';
+    }
+    count++;
+  }
+  count = 0;
+  while (count < courseCommonBucket.length) {
+    if(courseCommonBucket[count].selected == 'N' && courseCommonBucket[count].social == 't'){
+      let course = courseCommonBucket[count];
+      let selectedCourse = {'courseid' : course.courseid,
+                            'coursename' : course.coursename,
+                            'coursecredits' : course.coursecredits}
+      data.push(selectedCourse);
+      //creditSocial += course.coursecredits;
+    }else if (courseCommonBucket[count].selected == 'Y' && courseCommonBucket[count].social == 't') {
+      courseCommonBucket[count].selected = 'N';
+    }
+    count++;
+  }
+
+  if(data.length < 1){
+    error = 'Sorry :( , this is the only course under Social Category';
+  }
+  callback(error, data);
+}
+
+/*
+  Function to give alternatives for Management Bucket
+  When user ask to drop some course
+*/
+
+var creditManagement = 0;          // current credits after the course is dropped
+
+function dropManagementBucketCourse(courseID, courseCredits, callback) {
+
+  var data=[], error, count = 0;
+
+  if(CREDITS_BUCKET_MANAGEMENT - courseCredits < 0){
+    creditManagement = 0;
+  }else {
+    creditManagement = CREDITS_BUCKET_MANAGEMENT - courseCredits;;
+  }
+
+  while (count < courseManagementBucket.length) {
+    if(courseManagementBucket[count].selected == 'N'){
+      let course = courseManagementBucket[count];
+      let selectedCourse = {'courseid' : course.courseid,
+                            'coursename' : course.coursename,
+                            'coursecredits' : course.coursecredits}
+
+      data.push(selectedCourse);
+      //creditManagement += course.coursecredits;
+    }else {
+      courseManagementBucket[count].selected = 'N';
+    }
+    count++;
+  }
+  count = 0;
+  while (count < courseCommonBucket.length) {
+    if(courseCommonBucket[count].selected == 'N' && courseCommonBucket[count].management == 't'){
+      let course = courseCommonBucket[count];
+      let selectedCourse = {'courseid' : course.courseid,
+                            'coursename' : course.coursename,
+                            'coursecredits' : course.coursecredits}
+      data.push(selectedCourse);
+      //creditSocial += course.coursecredits;
+    }else if (courseCommonBucket[count].selected == 'Y' && courseCommonBucket[count].management == 't') {
+      courseCommonBucket[count].selected = 'N';
+    }
+    count++;
+  }
+
+  if(data.length < 1){
+    error = 'Sorry :( , this is the only course under Management Category';
+  }
+  callback(error, data);
+}
+
+
+/*
+  Function to give alternatives for Art Bucket
+  When user ask to add some course
+*/
+
+function addArtBucketCourse(courses, callback) {
+
+  console.log('Add Art ...');
+
+  var data, error;
+
+  for (var i = 0; i < courses.length; i++) {
+    creditArt += courses[i][1];
+  }
+
+  if(creditArt >= CREDITS_BUCKET_ART){
+    data = `OK`;
+  }else {
+    error = 'NOT_ENOUGH_CREDITS';
+  }
+  callback(error, data);
+}
+
+
+function addSocialBucketCourse(courses, callback) {
+
+  console.log('Add Social ...');
+
+  var data, error;
+
+  for (var i = 0; i < courses.length; i++) {
+    creditSocial += courses[i][1];
+  }
+
+  if(creditSocial >= CREDITS_BUCKET_SOCIAL){
+    data = `OK`;
+  }else {
+    error = 'NOT_ENOUGH_CREDITS';
+  }
+  callback(error, data);
+}
+
+function addManagementBucketCourse(courses, callback) {
+
+  console.log('Add Mang ...');
+
+  var data, error;
+
+  for (var i = 0; i < courses.length; i++) {
+    creditManagement += courses[i][1];
+  }
+
+  if(creditManagement >= CREDITS_BUCKET_MANAGEMENT){
+    data = `OK`;
+  }else {
+    error = 'NOT_ENOUGH_CREDITS';
+  }
+  callback(error, data);
 }
 
 // Get user information using the facebookId
@@ -1447,13 +2210,69 @@ function getFacebookData(facebookId, callback) {
   },
 
   function(err, response, body) {
-
     let userData = null
     if (err) console.log(err);
     else userData = JSON.parse(response.body);
 
     callback(err, userData);
   });
+}
+
+function checkAddCourseBucket(courseID, callback){
+
+  var data = [], err;
+  for (var i = 0; i < courseSocialBucket.length; i++) {
+    if(courseID == courseSocialBucket[i].courseid){
+      data.push('social');
+      data.push(courseSocialBucket[i].coursecredits);
+    }
+  }
+  for (var i = 0; i < courseArtBucket.length; i++) {
+    if(courseID == courseArtBucket[i].courseid){
+      data.push('art');
+      data.push(courseArtBucket[i].coursecredits);
+    }
+  }
+  for (var i = 0; i < courseManagementBucket.length; i++) {
+    if(courseID == courseManagementBucket[i].courseid){
+      data.push('management');
+      data.push(courseManagementBucket[i].coursecredits);
+    }
+  }
+  for (var i = 0; i < courseCommonBucket.length; i++) {
+    if(courseID == courseCommonBucket[i].courseid){
+      data.push('common');
+      data.push(courseCommonBucket[i].coursecredits);
+    }
+  }
+
+  callback(err, data);
+}
+
+function checkDropCourseBucket(courseID, callback){
+
+  var data = [], err;
+  for (var i = 0; i < previousSelectedSocialBucket.length; i++) {
+    if(courseID == previousSelectedSocialBucket[i].courseid){
+      data.push('social');
+      data.push(previousSelectedSocialBucket[i].coursecredits);
+    }
+  }
+  for (var i = 0; i < previousSelectedArtBucket.length; i++) {
+    if(courseID == previousSelectedArtBucket[i].courseid){
+      data.push('art');
+      data.push(previousSelectedArtBucket[i].coursecredits);
+    }
+  }
+  for (var i = 0; i < previousSelectedManagementBucket.length; i++) {
+    if(courseID == previousSelectedManagementBucket[i].courseid){
+      data.push('management');
+      data.push(previousSelectedManagementBucket[i].coursecredits);
+    }
+  }
+
+  console.log('Drop bucket = ' + data);
+  callback(err, data);
 }
 
 // function to get the day(Monday, Tuesday,.. of the week)
@@ -1623,7 +2442,7 @@ app.get('/generalElectives', function (request, response) {
             bucket += 'M ';
           }
           if(result.rows[i].coursesocial){
-            bucket += 'P ';
+            bucket += 'S ';
           }
 
 		  		var course = {
@@ -1631,7 +2450,7 @@ app.get('/generalElectives', function (request, response) {
 		  			'courseName':result.rows[i].coursename,
 		  			'category':bucket,
 		  			'credits':result.rows[i].coursecredits,
-            'sem':result.rows[i].courseofferedsem
+            'sem':result.rows[i].coursesem
 		  		}
 
 		  		courseList.push(course);
@@ -1680,8 +2499,6 @@ app.get(
 		//query database and put them into date_1,date_2.. array
 		//and show
 		db_query_show_timetable(get_timetable,get_field,response);
-
-
 
 	}
 );
