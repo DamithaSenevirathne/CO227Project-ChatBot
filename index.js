@@ -686,8 +686,6 @@ app.post('/', function(request, res){
 
      queryByCourseID_Date(query_by_courseID_specified_courseID, query_by_courseID_specified_day,facebookID, function (err, data) {
        if(!err){
-
-         console.log(data);
          // Extract values from data and send to user
          res.send(JSON.stringify(data))
        }else {
@@ -701,11 +699,12 @@ app.post('/', function(request, res){
    }else {
      let courseIdNotFound = ['I think you have made a mistake in the courseID',
                                'Check the courseID and try again',
-                               `Oops ! I don't have that course, check it again`];
+                               `I don't have that course, check it again`];
 
      let randomIndex = Math.floor(Math.random() * courseIdNotFound.length);
      let choosenMsg = courseIdNotFound[randomIndex];
-     res.send(JSON.stringify({'messages': [{"type": 0, "speech": choosenMsg}]}
+     res.send(JSON.stringify({'messages': [{"type": 0, "speech": ':('},
+                                           {"type": 0, "speech": choosenMsg}]}
 
      ))
    }
@@ -744,11 +743,12 @@ app.post('/', function(request, res){
 
       let courseIdNotFound = ['I think you have made a mistake in the courseID',
                                 'Check the courseID and try again',
-                                `Oops ! I don't have that course, check it again`];
+                                `I don't have that course, check it again`];
 
       let randomIndex = Math.floor(Math.random() * courseIdNotFound.length);
       let choosenMsg = courseIdNotFound[randomIndex];
-      res.send(JSON.stringify({'messages': [{"type": 0, "speech": choosenMsg}]}
+      res.send(JSON.stringify({'messages': [{"type": 0, "speech": ':('},
+                                            {"type": 0, "speech": choosenMsg}]}
 
       ))
     }
@@ -847,61 +847,196 @@ app.post('/', function(request, res){
 
   if(action == 'ACTION_COURSE_INFO'){
 
-    let courseID = request.body.result.parameters.CourseID;           // course id
+    /*
+      Check if the course is a valid
+    */
 
-    generalCourseInfo(courseID, function (err, data) {
-      if(!err){
+    if(request.body.result.parameters.CourseID){
 
-        let path = 'https://vast-peak-63221.herokuapp.com/course-detail?courseid=' + courseID;
-            var bucket = 'Categorized under,\n';
+      let courseID = request.body.result.parameters.CourseID;           // course id
 
-            if(data.courseart){
-              bucket += 'Arts and Humanities\n';
-            }
-            if(data.coursemanagement){
-              bucket += 'Management and Economics\n';
-            }
-            if(data.coursesocial){
-              bucket += 'Political and Social Sciences\n';
-            }
+      generalCourseInfo(courseID, function (err, data) {
+        if(!err){
 
-            var title = data.courseid + " - " + data.coursename
-            var description = `Credits = ${data.coursecredits}\n${bucket}`
+          let path = 'https://vast-peak-63221.herokuapp.com/course-detail?courseid=' + courseID;
+              var bucket = 'Categorized under,\n';
 
-            var data = {
-                  'data':{
-                    "facebook": [{
-                        "attachment": {
-                        "type": "template",
-                        "payload": {
-                          "template_type": "generic",
-                          "elements":[{
-                            "title": title,
-                            "subtitle": description,
-                            "buttons":[{
-                              "type":"web_url",
-                              "url":`${path}`,
-                              "title":"Read More"
-                            }]
-                            }
-                          ]
+              if(data.courseart){
+                bucket += 'Arts and Humanities\n';
+              }
+              if(data.coursemanagement){
+                bucket += 'Management and Economics\n';
+              }
+              if(data.coursesocial){
+                bucket += 'Political and Social Sciences\n';
+              }
+
+              var title = data.courseid + " - " + data.coursename
+              var description = `Credits = ${data.coursecredits}\n${bucket}`
+
+              var data = {
+                    'data':{
+                      "facebook": [{
+                          "attachment": {
+                          "type": "template",
+                          "payload": {
+                            "template_type": "generic",
+                            "elements":[{
+                              "title": title,
+                              "subtitle": description,
+                              "buttons":[{
+                                "type":"web_url",
+                                "url":`${path}`,
+                                "title":"Read More"
+                              }]
+                              }
+                            ]
+                          }
                         }
-                      }
-                    }]
+                      }]
+                    }
                   }
-                }
 
-        //var reply = {'messages': [{"type": 0, "speech": path}]}
+          //var reply = {'messages': [{"type": 0, "speech": path}]}
 
-        res.send(JSON.stringify(data))
+          res.send(JSON.stringify(data))
 
-         //res.send(JSON.stringify({'messages': [{"type": 0, "speech": data}]}))
-      }else {
-         res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
-      }
+           //res.send(JSON.stringify({'messages': [{"type": 0, "speech": data}]}))
+        }else {
+           res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
+        }
 
-    });
+      });
+
+    }else {
+      let courseIdNotFound = ['I think you have made a mistake in the courseID',
+                                'Check the courseID and try again',
+                                `I don't have that course, check it again`];
+
+      let randomIndex = Math.floor(Math.random() * courseIdNotFound.length);
+      let choosenMsg = courseIdNotFound[randomIndex];
+      res.send(JSON.stringify({'messages': [{"type": 0, "speech": ':('},
+                                            {"type": 0, "speech": choosenMsg}]}
+
+      ))
+    }
+
   }
+
+  /*
+      =============================================================================
+      Actions used to give course by interests
+      =============================================================================
+  */
+
+  if(action == 'ACTION_QUERY_COURSE_BY_TOPIC'){
+
+    if(request.body.result.parameters.courseID){
+
+      let courseID = request.body.result.parameters.courseID[0];           // course id
+
+      console.log(courseID);
+
+      generalCourseInfo(courseID, function (err, data) {
+        if(!err){
+
+          let path = 'https://vast-peak-63221.herokuapp.com/course-detail?courseid=' + courseID;
+              var bucket = 'Categorized under,\n';
+
+              if(data.courseart){
+                bucket += 'Arts and Humanities\n';
+              }
+              if(data.coursemanagement){
+                bucket += 'Management and Economics\n';
+              }
+              if(data.coursesocial){
+                bucket += 'Political and Social Sciences\n';
+              }
+
+              var title = data.courseid + " - " + data.coursename
+              var description = `Credits = ${data.coursecredits}\n${bucket}`
+
+              var data = {
+                    'data':{
+                      "facebook": [{
+                          "attachment": {
+                          "type": "template",
+                          "payload": {
+                            "template_type": "generic",
+                            "elements":[{
+                              "title": title,
+                              "subtitle": description,
+                              "buttons":[{
+                                "type":"web_url",
+                                "url":`${path}`,
+                                "title":"Read More"
+                              }]
+                              }
+                            ]
+                          }
+                        }
+                      }]
+                    }
+                  }
+
+           res.send(JSON.stringify(data))
+        }else {
+           res.send(JSON.stringify({'messages': [{"type": 0, "speech": `:(`},
+                                                 {"type": 0, "speech": `I don't have a course that satisfy your need`}]}))
+        }
+
+      });
+
+    }else {
+      let courseIdNotFound = [`I couldn't find a course`,
+                              `I don't have a course that satisfy your need`];
+
+      let randomIndex = Math.floor(Math.random() * courseIdNotFound.length);
+      let choosenMsg = courseIdNotFound[randomIndex];
+      res.send(JSON.stringify({'messages': [{"type": 0, "speech": ':('},
+                                            {"type": 0, "speech": choosenMsg}]}
+
+      ))
+    }
+  }
+
+  /*
+      =============================================================================
+      Actions used to give the courses in a certain bucket
+      =============================================================================
+  */
+
+  if (action == 'ACTION_COURSES_IN_A_BUCKET') {
+
+      let bucket = request.body.result.parameters.bucket;           // the bucket user asking
+
+      console.log('Bucket = ' + bucket);
+
+      giveCoursesInBucket(bucket, function (err, data) {
+        if(!err){
+
+          let reply = {'messages' : []};
+
+          for (var j = 0; j < data.length; j++) {
+
+            let course = data[j];
+            let msgCourse = {"type": 0, "speech": `*${course.courseid}* - ${course.coursename} _(${course.coursecredits})_`};
+            reply.messages.push(msgCourse);
+
+          }
+
+          res.send(JSON.stringify(reply))
+
+        }else {
+          let reply = {'messages':
+                          [{"type": 0, "speech": err}]}
+
+          res.send(JSON.stringify(reply))
+        }
+      })
+
+  }
+
 
   /*
       =============================================================================
@@ -1029,7 +1164,7 @@ app.post('/', function(request, res){
               }
 
             })
-          }else if (data[0] = 'social') {
+          }else if (data[0] == 'social') {
             // check for alternatives in Social Bucket
             dropSocialBucketCourse(changeCourse[i], data[1], function (err, data) {
               if(!err){
@@ -1077,18 +1212,25 @@ app.post('/', function(request, res){
 
     var addArtCourseList = [], addSocialCourseList = [], addManagementCourseList = [];
 
+    /*
+        Check the Category of the courses user ask to add
+    */
+
     for (var i = 0; i < addCourse.length; i++) {
       checkAddCourseBucket(addCourse[i], function (err, data) {
         if(!err){
           if(data[0] == 'art'){
             let course = [addCourse[i], data[1]];
             addArtCourseList.push(course);
+            //console.log('Art Course');
           }else if (data[0] == 'social') {
             let course = [addCourse[i], data[1]];
             addSocialCourseList.push(course);
+            //console.log('Social Course');
           }else if (data[0] == 'management'){
             let course = [addCourse[i], data[1]];
             addManagementCourseList.push(course);
+            //console.log('Management Course');
           }else {
             console.log('Common Course');
           }
@@ -1096,33 +1238,99 @@ app.post('/', function(request, res){
       })
     }
 
+    /*
+        Check if the user ask to add Art Bucket courses
+    */
 
+    var reply = {'messages' : []};
 
     if(addArtCourseList.length > 0){
       addArtBucketCourse(addArtCourseList, function (err, data) {
         if(data == 'OK'){
 
-          var reply = {'messages' : []};
-          let msg = {"type": 0, "speech": ":)"};
-          let msg2 = {"type": 0, "speech": `Great Choice, you can have it under Art Category`}
+          let msgHappy = {"type": 0, "speech": ":)"};
+          let msgHappy2 = {"type": 0, "speech": `Great Choice, It will fullfill the Art Category Credits`}
 
-          reply.messages.push(msg)
-          reply.messages.push(msg2)
+          reply.messages.push(msgHappy)
+          reply.messages.push(msgHappy2)
           // var reply = {'messages':
           //                 [{"type": 0, "speech": ":)"},
           //                  {"type": 0, "speech": `Great Choice, you can have it under Art Category`}]}
 
-          res.send(JSON.stringify(reply))
+          //res.send(JSON.stringify(reply))
         }else {
-          var reply = {'messages':
-                          [{"type": 0, "speech": ":("},
-                           {"type": 0, "speech": `${addCourse} alone wont cover the required credits`},
-                           {"type": 0, "speech": "Select more courses"}]}
+          // var reply = {'messages':
+          //                 [{"type": 0, "speech": ":("},
+          //                  {"type": 0, "speech": `${addCourse} alone wont cover the required credits`},
+          //                  {"type": 0, "speech": "Select more courses"}]}
 
-          res.send(JSON.stringify(reply))
+           let msgUnHappy = {"type": 0, "speech": ":("};
+           let msgUnHappy2 = {"type": 0, "speech": `${addArtCourseList[0][0]} alone wont cover the required credits`}
+           let msgUnHappy3 = {"type": 0, "speech": `Select more courses`}
+
+           reply.messages.push(msgUnHappy)
+           reply.messages.push(msgUnHappy2)
+           reply.messages.push(msgUnHappy3)
+
+          // res.send(JSON.stringify(reply))
         }
       })
     }
+
+    /*
+        Check if the user ask to add Social Bucket courses
+    */
+
+    if(addSocialCourseList.length > 0){
+      addSocialBucketCourse(addSocialCourseList, function (err, data) {
+        if(data == 'OK'){
+
+          let msgHappy = {"type": 0, "speech": ":)"};
+          let msgHappy2 = {"type": 0, "speech": `Great Choice,It will fullfill the Social Category Credits`}
+
+          reply.messages.push(msgHappy)
+          reply.messages.push(msgHappy2)
+
+          //res.send(JSON.stringify(reply))
+        }else {
+          let msgUnHappy = {"type": 0, "speech": ":("};
+          let msgUnHappy2 = {"type": 0, "speech": `${addSocialCourseList[0][0]} alone wont cover the required credits`}
+          let msgUnHappy3 = {"type": 0, "speech": `Select more courses`}
+
+          reply.messages.push(msgUnHappy)
+          reply.messages.push(msgUnHappy2)
+          reply.messages.push(msgUnHappy3)
+        }
+      })
+    }
+
+    /*
+        Check if the user ask to add Management Bucket courses
+    */
+
+    if(addManagementCourseList.length > 0){
+      addManagementBucketCourse(addManagementCourseList, function (err, data) {
+        if(data == 'OK'){
+
+          let msgHappy = {"type": 0, "speech": ":)"};
+          let msgHappy2 = {"type": 0, "speech": `Great Choice, It will fullfill the Management Category Credits`}
+
+          reply.messages.push(msgHappy)
+          reply.messages.push(msgHappy2)
+
+        }else {
+          let msgUnHappy = {"type": 0, "speech": ":("};
+          let msgUnHappy2 = {"type": 0, "speech": `${addManagementCourseList[0][0]} alone wont cover the required credits`}
+          let msgUnHappy3 = {"type": 0, "speech": `Select more courses`}
+
+          reply.messages.push(msgUnHappy)
+          reply.messages.push(msgUnHappy2)
+          reply.messages.push(msgUnHappy3)
+        }
+      })
+    }
+
+    res.send(JSON.stringify(reply))
 
   }
 
@@ -1639,23 +1847,60 @@ function generalCourseInfo(courseId, callback){
 
 console.log('======= Course Info = ' + courseId);
 
-var error, data;
+  var error, data;
 
-query = `Select * FROM table_course_general WHERE courseid='${courseId}';`;
+  query = `Select * FROM table_course_general WHERE courseid='${courseId}';`;
 
-client.query(query, function(err, result) {
+  client.query(query, function(err, result) {
 
-  if (!err && result.rows.length > 0){
-    // If no Error get courseId, startTime, endTime and send back to the user
-    console.log(result.rows);
-    data = result.rows[0];
-    callback(error, data);
+    if (!err && result.rows.length > 0){
+      // If no Error get info and send back to the user
+      data = result.rows[0];
+      callback(error, data);
 
-  }else {
-    error = err || `Sorry, No course Found !`;
-    callback(error, data);
-  }
-});
+    }else {
+      error = err || `I don't have that course :(, check wether you have made a mistake`;
+      callback(error, data);
+    }
+  });
+
+}
+
+/*
+  ==============================================================================
+
+  Functions used to give courses in a bucket
+
+  ==============================================================================
+*/
+
+function giveCoursesInBucket(bucket, callback) {
+
+    var error, data;
+    console.log("======= Query Courses in Bucket = " + bucket);
+
+    let query = `Select courseid, coursename, coursecredits FROM table_course_general WHERE ${bucket[0]}='t' `;
+
+    if(bucket.length > 1){
+      for (var i = 1; i < bucket.length; i++) {
+        query += `AND ${bucket[i]}='t' `;
+      }
+    }else {
+      query += `;`
+    }
+
+    client.query(query, function(err, result) {
+
+      if (!err && result.rows.length > 0){
+        // If no Error get info and send back to the user
+        data = result.rows;
+        callback(error, data);
+
+      }else {
+        error = err || `I don't have courses in that category :(`;
+        callback(error, data);
+      }
+    });
 
 }
 
@@ -1956,6 +2201,10 @@ function giveGECombination(callback) {
     }
   }
 
+  /*
+    Give an error if the buckets are not filled even with the common bucket
+  */
+
   if(creditArt < CREDITS_BUCKET_ART || creditSocial < CREDITS_BUCKET_SOCIAL || creditManagement < CREDITS_BUCKET_MANAGEMENT){
     err = 'NO_COMBINATIONS';
   }else {
@@ -2139,7 +2388,7 @@ function dropManagementBucketCourse(courseID, courseCredits, callback) {
 
 
 /*
-  Function to give alternatives for Art Bucket
+  Function to add courses for Art Bucket
   When user ask to add some course
 */
 
@@ -2161,6 +2410,10 @@ function addArtBucketCourse(courses, callback) {
   callback(error, data);
 }
 
+/*
+  Function to add courses for Social Bucket
+  When user ask to add some course
+*/
 
 function addSocialBucketCourse(courses, callback) {
 
@@ -2179,6 +2432,11 @@ function addSocialBucketCourse(courses, callback) {
   }
   callback(error, data);
 }
+
+/*
+  Function to add courses for Management Bucket
+  When user ask to add some course
+*/
 
 function addManagementBucketCourse(courses, callback) {
 
@@ -2218,6 +2476,10 @@ function getFacebookData(facebookId, callback) {
   });
 }
 
+/*
+  Functions used to check the bucket the course is added
+*/
+
 function checkAddCourseBucket(courseID, callback){
 
   var data = [], err;
@@ -2248,6 +2510,10 @@ function checkAddCourseBucket(courseID, callback){
 
   callback(err, data);
 }
+
+/*
+  Functions used to check the bucket the course is dropped
+*/
 
 function checkDropCourseBucket(courseID, callback){
 
