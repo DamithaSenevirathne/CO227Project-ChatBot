@@ -1,0 +1,52 @@
+doctype html
+html
+	head
+		style
+			include style.css
+	body
+		
+		h3 Time Table - #{timetable_h1} :  #{timetable_h_fieldname}
+		
+		table
+			tr
+				th MON
+				th TUE
+				th WED
+				th THU
+				th FRI
+				th SAT
+				th SUN
+			tr
+				td
+					ul
+						each val in slot_mon_1
+							li= val
+				td
+					ul
+						each val in slot_tue_1
+							li= val
+				td
+					ul
+						each val in slot_wed_1
+							li= val
+				td
+					ul
+						each val in slot_thu_1
+							li= val
+				td
+					ul
+						each val in slot_fri_1
+							li= val
+				td
+					ul
+						each val in slot_sat_1
+							li= val
+				td
+					ul
+						each val in slot_sun_1
+							li= val
+							
+							
+br
+br
+p Powered by PeraInfoBot

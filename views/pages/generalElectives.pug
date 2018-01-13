@@ -1,0 +1,22 @@
+html
+	head
+		title= 'Course Info'
+		link(rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons")
+		link(rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css")
+		script(src="https://code.getmdl.io/1.3.0/material.min.js")
+		body
+		h3= 'General Electives'
+	table
+		tr
+			th= 'Cousre ID'
+			th= 'Course Name'
+			th= 'Category'
+			th= 'Credits'
+			th= 'Semester'
+		for course in courseList
+			tr
+				td= course.courseID
+				td= course.courseName
+				td= course.category
+				td= course.credits
+				td= course.sem
