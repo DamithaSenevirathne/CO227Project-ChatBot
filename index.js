@@ -315,7 +315,7 @@ var fs = require('fs'); //to read files
 var moment = require('moment');
 
 //nodejs server online port
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 8000;
 
 //Chatbot facebook page, access token
 const FB_PAGE_ACCESS_TOKEN = 'EAAFLoV6ANvIBADadfOI0WWJ0ZBSd3cAO5Vm5GCpDYrjw4MPKu8OIh5tyv9hwHzoATCQGdM2z2xck4Mmg3kW4V8yzGQVvLCULnNC5nkGn9kLZBrQJZCPGPYZAWAFBlZB0FqBgEUYC7crwJfiQ5MuUEaViBZBzZCDq2TitfieKLuduAZDZD';
