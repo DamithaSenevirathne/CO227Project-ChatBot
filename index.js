@@ -2363,6 +2363,8 @@ function queryAllGEs(callback) {
 
   var error, data;
 
+  courseCommonBucket = []; courseManagementBucket=[]; courseArtBucket=[]; courseSocialBucket=[];	
+
   console.log("======= Query Electives ======");
 
   var queryAllBucket = `Select courseid, coursename, coursecredits FROM table_course_general WHERE coursesem='short' AND coursemanagement='t' AND courseart='t' AND coursesocial='t';`;
