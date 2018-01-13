@@ -3260,7 +3260,7 @@ function db_query_show_course_detail(get_courseid,get_tablename,response){
 
   });
 
-}s
+}
 
 //--------------------------------------------------------------------------------------------[Show Timetables]
 app.get(
