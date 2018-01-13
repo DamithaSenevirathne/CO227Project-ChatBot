@@ -1334,6 +1334,105 @@ app.post('/', function(request, res){
 
   }
 
+  /*
+      =============================================================================
+      Actions used to query timetables using the courseType and semester
+      =============================================================================
+    */
+
+  // Need to query the DB using the courseType and semester
+  if(action == 'ACTION_QUERY_BY_COURSETYPE_AND_SEMESTER'){
+    //var facebookID = request.body.originalRequest.data.sender.id;
+
+    let facebookID = request.body.originalRequest.data.sender.id;       // facebook id
+    query_by_courseType_and_semester_specified_courseType = request.body.result.parameters.CourseType;      // courseType specified by user
+    query_by_courseType_and_semester_specified_semester = request.body.result.parameters.Semester;      // semester specified by user
+
+    queryByCourseType_Semester(query_by_courseType_and_semester_specified_courseType, query_by_courseType_and_semester_specified_semester,facebookID, function (err, data) {
+      if(!err){
+
+        console.log(data);
+        // Extract values from data and send to user
+        res.send(JSON.stringify(data))
+      }else {
+        res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
+      }
+    });
+  }
+
+
+ /*
+      =============================================================================
+      Actions used to query timetables using the courseType current semester
+      =============================================================================
+    */
+
+  // Need to query the DB using the courseType and semester
+  if(action == 'ACTION_QUERY_BY_COURSETYPE_IN_CURRENT_SEMESTER'){
+
+    let facebookID = request.body.originalRequest.data.sender.id;       // facebook id
+    query_by_courseType_and_semester_specified_courseType = request.body.result.parameters.CourseType;      // courseType specified by user
+
+    queryByCourseType_CurrentSemester(query_by_courseType_and_semester_specified_courseType,facebookID, function (err, data) {
+      if(!err){
+
+        console.log(data);
+        // Extract values from data and send to user
+        res.send(JSON.stringify(data))
+      }else {
+        res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
+      }
+    });
+  }
+
+     /*
+      =============================================================================
+      Actions used to query timetables using the semester (All courses)
+      =============================================================================
+    */
+
+  // Need to query the DB using the semester
+  if(action == 'ACTION_QUERY_BY_SEMESTER_ALL_COURSES'){
+
+    let facebookID = request.body.originalRequest.data.sender.id;       // facebook id
+    query_by_courseType_and_semester_specified_semester = request.body.result.parameters.Semester;      // semester specified by user
+
+
+    queryBySemester(query_by_courseType_and_semester_specified_semester,facebookID, function (err, data) {
+      if(!err){
+
+        console.log(data);
+        // Extract values from data and send to user
+        res.send(JSON.stringify(data))
+      }else {
+        res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
+      }
+    });
+  }
+
+    /*
+      =============================================================================
+      Actions used to query timetables using the current semester (All courses)
+      =============================================================================
+    */
+
+  // Need to query the DB using the current semester
+  if(action == 'ACTION_QUERY_BY_CURRENT_SEMESTER_ALL_COURSES'){
+
+    let facebookID = request.body.originalRequest.data.sender.id;       // facebook id
+
+    queryByCurrentSemester(facebookID, function (err, data) {
+      if(!err){
+
+        console.log(data);
+        // Extract values from data and send to user
+        res.send(JSON.stringify(data))
+      }else {
+        res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
+      }
+    });
+  }
+
 });
 
 // set the port your listening
@@ -1829,6 +1928,352 @@ function queryFullTimeTable(facebookId, callback){
 
     }else {
       error = err || 'NOT_REGISTERED';
+      callback(error, data);
+    }
+
+  });
+}
+
+/*
+  ==============================================================================
+
+  Functions used to query the DB by CourseType and Semester
+
+  ==============================================================================
+*/
+
+//function to query the DB by CourseType and Semester e.g. -> Which general electives do I have in semester 4?
+function queryByCourseType_Semester(CourseType, Semester, facebookId, callback){
+
+
+  console.log('======= Query By CourseType and Semester =========');
+
+  var error;
+  var data = {}          // empty Object
+  var key = 'messages';
+  data[key] = [];       // empty Array, which you can push() values into
+
+  if(CourseType == 'general'){
+    console.log('table to Query = table_course_general');
+    query = `SELECT * FROM table_course_general WHERE courseSem ='${Semester}';`;
+  }
+  else {
+    console.log('table to Query = table_course');
+    query = `SELECT * FROM table_course WHERE coursetype='${CourseType}' AND coursesem ='${Semester}';`;
+  }
+
+  client.query(query, function(err, result) {
+    if (!err && result.rows.length > 0){
+      if(CourseType == 'core'){
+        if(Semester == 'short'){
+          var firstMsg = {type : 0, speech : `In the short semester you have the following ${CourseType} courses,`}
+        } else {
+          var firstMsg = {type : 0, speech : `In Semester ${Semester} you have the following ${CourseType} courses,`}
+        }
+
+      } else {
+        if(Semester == 'short'){
+          var firstMsg = {type : 0, speech : `In the short semester you have the following ${CourseType} electives,`}
+        } else {
+          var firstMsg = {type : 0, speech : `In Semester ${Semester} you have the following ${CourseType} electives,`}
+        }
+      }
+      data[key].push(firstMsg)
+
+      for (var i = 0; i < result.rows.length; i++) {
+        let courseID = result.rows[i].courseid;
+        let courseName = result.rows[i].coursename;
+
+        let msg = `*${courseID}:* _${courseName}_\n`;
+        var course = {type : 0, speech : msg};
+        data[key].push(course);
+      }
+      callback(error, data);
+
+
+    } else {
+      if(CourseType == 'core'){
+        error = err || `You're not offered any ${CourseType} courses in that semester.`;
+        callback(error, data);
+      } else{
+        error = err || `You're not offered any ${CourseType} electives in that semester.`;
+        callback(error, data);
+      }
+    }
+  });
+}
+
+/*
+  ==============================================================================
+
+  Functions used to query the DB by CourseType in Current Semester
+
+  ==============================================================================
+*/
+
+//function to query the DB by CourseType in Current Semester e.g. -> What are the general electives offered in current semester
+function queryByCourseType_CurrentSemester(CourseType, facebookId, callback){
+
+  console.log('======= Query By CourseType in Current Semester =========');
+
+  //console.log(facebookID);
+  // get eNumber with facebookID
+  let query = `Select registrationnumber FROM table_user_map_chatclients WHERE facebookid='${facebookId}';`;
+
+  var error;
+  var data = {}          // empty Object
+  var key = 'messages';
+  data[key] = [];       // empty Array, which you can push() values into
+
+  client.query(query, function(err, result) {
+    if (!err && result.rows.length > 0){
+      // If no Error get eNumber and query studentInfotable
+      let eNumber = result.rows[0].registrationnumber;
+      console.log('eNumber = ' + eNumber);
+      query = `SELECT fieldofstudy, semester FROM table_user_student_feels WHERE registrationnumber='${eNumber}';`;
+
+      client.query(query, function(err, result) {
+        if (!err && result.rows.length > 0){
+          // If no Error get fieldOfStudy, Semester and query the respective table
+          let fieldOfStudy = result.rows[0].fieldofstudy;
+          let semester = result.rows[0].semester;
+
+          if(CourseType == 'general'){
+            console.log('table to Query = table_course_general');
+            query = `SELECT * FROM table_course_general WHERE courseSem ='${semester}';`;
+          }
+          else {
+            console.log('table to Query = table_course');
+            query = `SELECT * FROM table_course WHERE coursetype='${CourseType}' AND coursesem ='${semester}';`;
+          }
+
+          client.query(query, function(err, result) {
+
+          if (!err && result.rows.length > 0){
+          // If no error get required time and send back to the user
+            if(CourseType == 'core'){
+              if(semester == 'short'){
+                var firstMsg = {type : 0, speech : `In the short semester you have the following ${CourseType} courses,`}
+              } else {
+                var firstMsg = {type : 0, speech : `In Semester ${semester} you have the following ${CourseType} courses,`}
+              }
+
+            } else {
+              if(semester == 'short'){
+                var firstMsg = {type : 0, speech : `In the short semester you have the following ${CourseType} electives,`}
+              } else {
+                var firstMsg = {type : 0, speech : `In Semester ${semester} you have the following ${CourseType} electives,`}
+              }
+            }
+            data[key].push(firstMsg)
+
+              for (var i = 0; i < result.rows.length; i++) {
+
+                let courseID = result.rows[i].courseid;
+                let courseName = result.rows[i].coursename;
+
+                let msg = `*${courseID}:* _${courseName}_\n`;
+                var course = {type : 0, speech : msg};
+                data[key].push(course);
+              }
+               callback(error, data);
+
+
+            }else {
+              if(CourseType == 'core'){
+                error = err || `You're not offered any ${CourseType} courses in the current semester.`;
+                callback(error, data);
+              } else{
+                error = err || `You're not offered any ${CourseType} electives in the current semester.`;
+                callback(error, data);
+              }
+            }
+          });
+
+        }else {
+          error = err || `Seems like you're not an Efac student`;
+          callback(error, data);
+        }
+      });
+
+    }else {
+      error = err || `Looks like you are not registered yet`;
+      callback(error, data);
+    }
+
+  });
+}
+
+
+/*
+  ==============================================================================
+
+  Functions used to query the DB by Semester (All Courses)
+
+  ==============================================================================
+*/
+
+//function to query the DB by Semester e.g. -> What are the courses offered in semester 4
+function queryBySemester(Semester, facebookId, callback){
+
+  console.log('======= Query By Semester (All Courses) =========');
+
+  var error;
+  var data = {}          // empty Object
+  var key = 'messages';
+  data[key] = [];       // empty Array, which you can push() values into
+
+  console.log('table to Query = table_course_general and table_course ');
+
+  query = `SELECT * FROM table_course WHERE coursesem ='${Semester}';`;
+
+  client.query(query, function(err, result) {
+    if (!err && result.rows.length > 0){
+      if(Semester == 'short'){
+        var firstMsg = {type : 0, speech : `In the short semester you have the following courses,`}
+      } else {
+        var firstMsg = {type : 0, speech : `In Semester ${Semester} you have the following courses,`}
+      }
+
+      data[key].push(firstMsg)
+
+      for (var i = 0; i < result.rows.length; i++) {
+        let courseID = result.rows[i].courseid;
+        let courseName = result.rows[i].coursename;
+        let courseType = result.rows[i].coursetype;
+
+        let msg = `*${courseID}:* _${courseName} (${courseType})_\n`;
+        var course = {type : 0, speech : msg};
+        data[key].push(course);
+      }
+
+      if(Semester == 'short' | Semester == '8' ){
+        query = `SELECT * FROM table_course_general WHERE coursesem ='${Semester}';`;
+
+        client.query(query, function(err, result) {
+          if (!err && result.rows.length > 0){
+            for (var i = 0; i < result.rows.length; i++) {
+              let courseID = result.rows[i].courseid;
+              let courseName = result.rows[i].coursename;
+
+              let msg = `*${courseID}:* _${courseName} (general)_\n`;
+              var course = {type : 0, speech : msg};
+              data[key].push(course);
+            }
+            callback(error, data);
+
+          } else {
+            callback(error, data);
+          }
+      });
+
+      }else{
+        callback(error, data);
+      }
+
+    } else {
+      error = err || `That is not a valid semester! Try again.`;
+      callback(error, data);
+    }
+  });
+}
+
+
+/*
+  ==============================================================================
+
+  Functions used to query the DB by Current Semester (All Courses)
+
+  ==============================================================================
+*/
+
+//function to query the DB by Current Semester e.g. -> What are the courses offered in current semester
+function queryByCurrentSemester(facebookId, callback){
+
+  console.log('======= Query By Current Semester (All Courses) =========');
+
+  //console.log(facebookID);
+  // get eNumber with facebookID
+  let query = `Select registrationnumber FROM table_user_map_chatclients WHERE facebookid='${facebookId}';`;
+
+  var error;
+  var data = {}          // empty Object
+  var key = 'messages';
+  data[key] = [];       // empty Array, which you can push() values into
+
+  client.query(query, function(err, result) {
+    if (!err && result.rows.length > 0){
+      // If no Error get eNumber and query studentInfotable
+      let eNumber = result.rows[0].registrationnumber;
+      console.log('eNumber = ' + eNumber);
+      query = `SELECT fieldofstudy, semester FROM table_user_student_feels WHERE registrationnumber='${eNumber}';`;
+
+      client.query(query, function(err, result) {
+        if (!err && result.rows.length > 0){
+          // If no Error get fieldOfStudy, Semester and query the respective table
+          let fieldOfStudy = result.rows[0].fieldofstudy;
+          let semester = result.rows[0].semester;
+
+          query = `SELECT * FROM table_course WHERE coursesem ='${semester}';`;
+
+          client.query(query, function(err, result) {
+            if (!err && result.rows.length > 0){
+              if(semester == 'short'){
+                var firstMsg = {type : 0, speech : `In the short semester you have the following courses,`}
+              } else {
+                var firstMsg = {type : 0, speech : `In Semester ${semester} you have the following courses,`}
+              }
+
+              data[key].push(firstMsg)
+
+              for (var i = 0; i < result.rows.length; i++) {
+                let courseID = result.rows[i].courseid;
+                let courseName = result.rows[i].coursename;
+                let courseType = result.rows[i].coursetype;
+
+                let msg = `*${courseID}:* _${courseName} (${courseType})_\n`;
+                var course = {type : 0, speech : msg};
+                data[key].push(course);
+              }
+
+              if(semester == 'short' | semester == '8' ){
+                query = `SELECT * FROM table_course_general WHERE coursesem ='${semester}';`;
+
+                client.query(query, function(err, result) {
+                  if (!err && result.rows.length > 0){
+                    for (var i = 0; i < result.rows.length; i++) {
+                      let courseID = result.rows[i].courseid;
+                      let courseName = result.rows[i].coursename;
+
+                      let msg = `*${courseID}:* _${courseName} (general)_\n`;
+                      var course = {type : 0, speech : msg};
+                      data[key].push(course);
+                    }
+                    callback(error, data);
+
+                  } else {
+                    callback(error, data);
+                  }
+              });
+
+              }else{
+                callback(error, data);
+              }
+
+            } else {
+              error = err || `That is not a valid semester! Try again.`;
+              callback(error, data);
+            }
+          });
+
+        }else {
+          error = err || `Seems like you're not an Efac student`;
+          callback(error, data);
+        }
+      });
+
+    }else {
+      error = err || `Looks like you are not registered yet`;
       callback(error, data);
     }
 
@@ -2752,6 +3197,70 @@ app.get(
 		email_send_verification_code(send_email_address);
 	}
 );
+
+//--------------------------------------------------------------------------------------------[Show full course details]
+app.get(
+	'/course-detail',
+	function (request, response) {
+		console.log('===== time table =====');
+
+		//get request parameters
+		var get_courseid= request.query.courseid;//$_GET["courseid"] ?courseid=ef301
+		var get_tablename='table_course_general';
+
+		db_query_show_course_detail(get_courseid,get_tablename,response);
+
+	}
+);
+
+function db_query_show_course_detail(get_courseid,get_tablename,response){
+
+  console.log('======= db_query_show_course_detail =========');
+
+  var res_course_id=get_courseid.toUpperCase();
+
+  query = `select coursename, coursedescription, coursecredits from ${get_tablename} where courseid='${res_course_id}'`;
+  console.log(query);
+
+  var res_course_id=get_courseid.toUpperCase();
+  var res_course_name='';
+  var res_course_description='';
+  //var res_course_credits='';
+
+
+  client.query(query, function(err, result) {
+    if (!err && result.rows.length > 0){
+      // If no Error get eNumber and query studentInfoTable
+
+		res_course_name=result.rows[0].coursename;
+		res_course_description=result.rows[0].coursedescription;
+		//res_course_credits=result.rows[0].coursecredits;
+		console.log('found result');
+
+
+    }else {
+      error = err || `No record found at general electives : db_query_show_course_detail`;
+      //callback(error, data);
+	  //return 'no-result-found';
+
+	  console.log('error:'+error);
+
+
+
+    }
+
+	  //showing pug page, positive
+		response.render('pages/coursedetail', {
+		  course_id:res_course_id,
+		  course_name:res_course_name,
+		  course_description:res_course_description,
+		  //course_credits:res_course_credits
+		});
+
+
+  });
+
+}s
 
 //--------------------------------------------------------------------------------------------[Show Timetables]
 app.get(
