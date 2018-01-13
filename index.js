@@ -1146,9 +1146,11 @@ app.post('/', function(request, res){
 
     var changeCourse = request.body.result.parameters.CourseID;
 
+    var alternatives = '';
+
     for (var i = 0; i < changeCourse.length; i++) {
 
-      var alternatives = `You can replace *${changeCourse[i]}* with\n`
+      alternatives += `You can replace *${changeCourse[i]}* with\n`
 
       checkDropCourseBucket(changeCourse[i], function (err, data) {
         if(!err){
@@ -1164,6 +1166,7 @@ app.post('/', function(request, res){
               }
 
             })
+
           }else if (data[0] == 'social') {
             // check for alternatives in Social Bucket
             dropSocialBucketCourse(changeCourse[i], data[1], function (err, data) {
