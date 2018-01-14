@@ -406,8 +406,8 @@ app.post('/', function(request, res){
         let randomIndex = Math.floor(Math.random() * firstMsg.length);
         let choosenMsg1 = firstMsg[randomIndex];
 
-        let secondMsg = ['How can I help you ?',
-                         'What do you want to know ?'];
+        let secondMsg = ['How can I help you?',
+                         'What do you want to know?'];
 
         randomIndex = Math.floor(Math.random() * secondMsg.length);
         let choosenMsg2 = secondMsg[randomIndex];
@@ -699,7 +699,7 @@ app.post('/', function(request, res){
    }else {
      let courseIdNotFound = ['I think you have made a mistake in the courseID',
                                'Check the courseID and try again',
-                               `I don't have that course, check it again`];
+                               `I don't have that course. Check it again`];
 
      let randomIndex = Math.floor(Math.random() * courseIdNotFound.length);
      let choosenMsg = courseIdNotFound[randomIndex];
@@ -743,7 +743,7 @@ app.post('/', function(request, res){
 
       let courseIdNotFound = ['I think you have made a mistake in the courseID',
                                 'Check the courseID and try again',
-                                `I don't have that course, check it again`];
+                                `I don't have that course. Check it again`];
 
       let randomIndex = Math.floor(Math.random() * courseIdNotFound.length);
       let choosenMsg = courseIdNotFound[randomIndex];
@@ -911,7 +911,7 @@ app.post('/', function(request, res){
     }else {
       let courseIdNotFound = ['I think you have made a mistake in the courseID',
                                 'Check the courseID and try again',
-                                `I don't have that course, check it again`];
+                                `I don't have that course. Check it again`];
 
       let randomIndex = Math.floor(Math.random() * courseIdNotFound.length);
       let choosenMsg = courseIdNotFound[randomIndex];
@@ -982,14 +982,14 @@ app.post('/', function(request, res){
            res.send(JSON.stringify(data))
         }else {
            res.send(JSON.stringify({'messages': [{"type": 0, "speech": `:(`},
-                                                 {"type": 0, "speech": `I don't have a course that satisfy your need`}]}))
+                                                 {"type": 0, "speech": `Sorry. I don't have a course that satisfies your need`}]}))
         }
 
       });
 
     }else {
-      let courseIdNotFound = [`I couldn't find a course`,
-                              `I don't have a course that satisfy your need`];
+      let courseIdNotFound = [`I couldn't find a course. Sorry!`,
+                              `Sorry. I don't have a course that satisfies your need`];
 
       let randomIndex = Math.floor(Math.random() * courseIdNotFound.length);
       let choosenMsg = courseIdNotFound[randomIndex];
@@ -1081,7 +1081,7 @@ app.post('/', function(request, res){
             }else {
               var reply = {'messages':
                               [{"type": 0, "speech": ':('},
-                                {"type": 0, "speech": 'No comination is possible'}]}
+                                {"type": 0, "speech": 'No combination is possible'}]}
 
               res.send(JSON.stringify(reply))
             }
@@ -1089,7 +1089,7 @@ app.post('/', function(request, res){
         }else {
           var reply = {'messages':
                           [{"type": 0, "speech": ':( Sorry'},
-                            {"type": 0, "speech": 'Problem in the Database, Try Later'}]}
+                            {"type": 0, "speech": 'Looks like there is a problem in the database, Try again later!'}]}
 
           res.send(JSON.stringify(reply))
         }
@@ -1129,7 +1129,7 @@ app.post('/', function(request, res){
       }else {
         var reply = {'messages':
                         [{"type": 0, "speech": ':('},
-                          {"type": 0, "speech": 'No other cominations are possible'}]}
+                          {"type": 0, "speech": 'No other combinations are possible'}]}
 
         res.send(JSON.stringify(reply))
       }
@@ -1252,7 +1252,7 @@ app.post('/', function(request, res){
         if(data == 'OK'){
 
           let msgHappy = {"type": 0, "speech": ":)"};
-          let msgHappy2 = {"type": 0, "speech": `Great Choice, It will fullfill the Art Category Credits`}
+          let msgHappy2 = {"type": 0, "speech": `Great Choice! It will fulfil the required credits for the Arts and Humanities category`}
 
           reply.messages.push(msgHappy)
           reply.messages.push(msgHappy2)
@@ -1268,7 +1268,7 @@ app.post('/', function(request, res){
           //                  {"type": 0, "speech": "Select more courses"}]}
 
            let msgUnHappy = {"type": 0, "speech": ":("};
-           let msgUnHappy2 = {"type": 0, "speech": `${addArtCourseList[0][0]} alone wont cover the required credits`}
+           let msgUnHappy2 = {"type": 0, "speech": `${addArtCourseList[0][0]} alone won't cover the required credits`}
            let msgUnHappy3 = {"type": 0, "speech": `Select more courses`}
 
            reply.messages.push(msgUnHappy)
@@ -1289,7 +1289,7 @@ app.post('/', function(request, res){
         if(data == 'OK'){
 
           let msgHappy = {"type": 0, "speech": ":)"};
-          let msgHappy2 = {"type": 0, "speech": `Great Choice,It will fullfill the Social Category Credits`}
+          let msgHappy2 = {"type": 0, "speech": `Great Choice! It will fulfil the required credits for the Political and Social Sciences category`}
 
           reply.messages.push(msgHappy)
           reply.messages.push(msgHappy2)
@@ -1297,7 +1297,7 @@ app.post('/', function(request, res){
           //res.send(JSON.stringify(reply))
         }else {
           let msgUnHappy = {"type": 0, "speech": ":("};
-          let msgUnHappy2 = {"type": 0, "speech": `${addSocialCourseList[0][0]} alone wont cover the required credits`}
+          let msgUnHappy2 = {"type": 0, "speech": `${addSocialCourseList[0][0]} alone won't cover the required credits`}
           let msgUnHappy3 = {"type": 0, "speech": `Select more courses`}
 
           reply.messages.push(msgUnHappy)
@@ -1316,14 +1316,14 @@ app.post('/', function(request, res){
         if(data == 'OK'){
 
           let msgHappy = {"type": 0, "speech": ":)"};
-          let msgHappy2 = {"type": 0, "speech": `Great Choice, It will fullfill the Management Category Credits`}
+          let msgHappy2 = {"type": 0, "speech": `Great Choice! It will fulfil the required credits for the Management and Economics category`}
 
           reply.messages.push(msgHappy)
           reply.messages.push(msgHappy2)
 
         }else {
           let msgUnHappy = {"type": 0, "speech": ":("};
-          let msgUnHappy2 = {"type": 0, "speech": `${addManagementCourseList[0][0]} alone wont cover the required credits`}
+          let msgUnHappy2 = {"type": 0, "speech": `${addManagementCourseList[0][0]} alone won't cover the required credits`}
           let msgUnHappy3 = {"type": 0, "speech": `Select more courses`}
 
           reply.messages.push(msgUnHappy)
@@ -1585,7 +1585,7 @@ function queryByCourseID(CourseID, facebookId, callback){
 
             }else {
               //error = err || `You don't have ${CourseID} on ${day}`;
-              error = err || `I don't have ${CourseID}, Seems like you have made a mistake`;
+              error = err || `I don't have ${CourseID}. Seems like you have made a mistake`;
               callback(error, data);
             }
           });
@@ -2307,7 +2307,7 @@ console.log('======= Course Info = ' + courseId);
       callback(error, data);
 
     }else {
-      error = err || `I don't have that course :(, check wether you have made a mistake`;
+      error = err || `I don't have that course :(, check whether you have made a mistake`;
       callback(error, data);
     }
   });
@@ -2345,7 +2345,7 @@ function giveCoursesInBucket(bucket, callback) {
         callback(error, data);
 
       }else {
-        error = err || `I don't have courses in that category :(`;
+        error = err || `I don't have any courses in that category :(`;
         callback(error, data);
       }
     });
@@ -2727,7 +2727,7 @@ function dropArtBucketCourse(courseID, courseCredits, callback) {
   }
 
   if(data.length < 1){
-    error = 'Sorry :( , this is the only course under Art Category';
+    error = 'Sorry :( , this is the only course under the Arts and Humanities category';
   }
   callback(error, data);
 }
@@ -2779,7 +2779,7 @@ function dropSocialBucketCourse(courseID, courseCredits, callback) {
   }
 
   if(data.length < 1){
-    error = 'Sorry :( , this is the only course under Social Category';
+    error = 'Sorry :( , this is the only course under the Political and Social Sciences category';
   }
   callback(error, data);
 }
@@ -2831,7 +2831,7 @@ function dropManagementBucketCourse(courseID, courseCredits, callback) {
   }
 
   if(data.length < 1){
-    error = 'Sorry :( , this is the only course under Management Category';
+    error = 'Sorry :( , this is the only course under the Management and Economics category';
   }
   callback(error, data);
 }
