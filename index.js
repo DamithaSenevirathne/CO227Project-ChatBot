@@ -1,6 +1,8 @@
 
 // https://vast-peak-63221.herokuapp.com/
 
+const serverPath = 'http://localhost:8000/';
+
 //postgres database url
 const DATABASE_URL = 'postgres://dcfvnzofeempgk:2c027d6f6788c5b82e4cbb9e9d388254211a61156d1fc1e35312c8c5885958aa@ec2-107-22-167-179.compute-1.amazonaws.com:5432/d3teg1g8u2anm';
 
@@ -54,7 +56,7 @@ function get_mail_send_verification(email_to,verification_code){
 	  from: 'perachatbot@gmail@gmail.com',
 	  to: email_to,
 	  subject: 'PeraInfoBot - Facebook Verification!',
-	  text: 'Please click this link to verify your request : https://vast-peak-63221.herokuapp.com/verify-facebook?regno='+current_registrationnumber+'&client=facebook&verification_code='+verification_code+'&client_id='+current_facebook_id
+	  text: 'Please click this link to verify your request : serverPath/verify-facebook?regno='+current_registrationnumber+'&client=facebook&verification_code='+verification_code+'&client_id='+current_facebook_id
 	};
 	return mail_send_verification;
 }
@@ -713,6 +715,34 @@ app.post('/', function(request, res){
 
  }
 
+
+ if(action == 'ACTION_QUERY_BY_COURSEID_AND_DATE_NEXT'){
+
+    let facebookID = request.body.originalRequest.data.sender.id;           // facebook id
+    let courseID = request.body.result.parameters.courseID;                 // courseID specified by user
+    let day = moment(request.body.result.parameters.date).format('dddd');   // day specified by user
+    let queryDay;
+
+    getNextDay(day, function (data) {
+      queryDay = data;
+    });
+
+    queryByCourseIDNextDay(courseID, queryDay, facebookID, function (err, data) {
+      if(!err){
+        // Extract values from data and send to user
+        let msg = `You have *${courseID}* on ${data.timetabledate}`;
+        res.send(JSON.stringify({'messages': [{"type": 0, "speech": msg}]}))
+      }else {
+        if(err == 'NOT_REGISTERED'){
+          res.send(JSON.stringify(registerNow))
+        }else {
+          res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
+        }
+      }
+    });
+
+ }
+
   /*
     =============================================================================
       Actions used to query timetables using the courseID
@@ -791,7 +821,7 @@ app.post('/', function(request, res){
 
     });
   }
-	
+
     /*
       =============================================================================
       Actions used to Query Timetables bu saying before or After
@@ -869,7 +899,7 @@ app.post('/', function(request, res){
 
     })
 
-  }	
+  }
 
   /*
       =============================================================================
@@ -884,7 +914,7 @@ app.post('/', function(request, res){
     queryFullTimeTable(facebookID, function (err, data) {
       if(!err){
 
-        let path = 'https://vast-peak-63221.herokuapp.com/' + data;
+        let path = serverPath + data;
         var data = {
               'data':{
                 "facebook": [{
@@ -903,6 +933,8 @@ app.post('/', function(request, res){
                 }]
               }
             }
+
+            console.log(path);
 
         //var reply = {'messages': [{"type": 0, "speech": path}]}
 
@@ -939,7 +971,7 @@ app.post('/', function(request, res){
       generalCourseInfo(courseID, function (err, data) {
         if(!err){
 
-          let path = 'https://vast-peak-63221.herokuapp.com/course-detail?courseid=' + courseID;
+          let path = serverPath + 'course-detail?courseid=' + courseID;
               var bucket = 'Categorized under,\n';
 
               if(data.courseart){
@@ -1021,7 +1053,7 @@ app.post('/', function(request, res){
       generalCourseInfo(courseID, function (err, data) {
         if(!err){
 
-          let path = 'https://vast-peak-63221.herokuapp.com/course-detail?courseid=' + courseID;
+          let path = serverPath + 'course-detail?courseid=' + courseID;
               var bucket = 'Categorized under,\n';
 
               if(data.courseart){
@@ -1667,6 +1699,58 @@ function queryByCourseID(CourseID, facebookId, callback){
             }else {
               //error = err || `You don't have ${CourseID} on ${day}`;
               error = err || `I don't have ${CourseID}. Seems like you have made a mistake`;
+              callback(error, data);
+            }
+          });
+
+        }else {
+          error = err || `Seems like you're not an Efac student`;
+          callback(error, data);
+        }
+      });
+
+    }else {
+      error = err || 'NOT_REGISTERED';
+      callback(error, data);
+    }
+
+  });
+}
+
+function queryByCourseIDNextDay(courseID, queryDay, facebookId, callback) {
+
+  console.log('======= Query By cousreID + Next Day ========= ' + courseID + " " + queryDay);
+
+  let query = `Select registrationnumber FROM table_user_map_chatclients WHERE facebookid='${facebookId}';`;
+
+  var error, data;
+
+  client.query(query, function(err, result) {
+    if (!err && result.rows.length > 0){
+      // If no Error get eNumber and query studentInfotable
+      let eNumber = result.rows[0].registrationnumber;
+      query = `Select fieldofstudy, semester FROM table_user_student_feels WHERE registrationnumber='${eNumber}';`;
+
+      client.query(query, function(err, result) {
+        if (!err && result.rows.length > 0){
+          // If no Error get fieldOfStudy, Semester and query the respective table
+          let fieldOfStudy = result.rows[0].fieldofstudy;
+          let semester = result.rows[0].semester;
+          table_to_query = MAP_SEMESTER_TO_DB[semester-1];   // Since indexing is done from 0
+          console.log('table to Query = ' + table_to_query);
+
+          query = `Select * FROM ${table_to_query} WHERE courseid='${courseID}' AND timetabledate>='${queryDay}' ORDER BY timetabledate;`;
+
+          client.query(query, function(err, result) {
+
+            if (!err && result.rows.length > 0){
+              // If no Error give the data to the user
+              console.log(result.rows);
+              data = result.rows[0];
+              callback(error, data);
+
+            }else {
+              error = err || `Looks like the course is missing`;
               callback(error, data);
             }
           });
@@ -2599,7 +2683,7 @@ function queryAllGEs(callback) {
 
   var error, data;
 
-  courseCommonBucket = []; courseManagementBucket=[]; courseArtBucket=[]; courseSocialBucket=[];	
+  courseCommonBucket = []; courseManagementBucket=[]; courseArtBucket=[]; courseSocialBucket=[];
 
   console.log("======= Query Electives ======");
 
