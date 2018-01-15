@@ -25,7 +25,7 @@ var generator = require('generate-password');
 
 var nodemailer = require('nodemailer'); //get instance
 
-/** ORIGINAL
+
 var transporter = nodemailer.createTransport({ //setting email account details
   service: 'gmail',
   auth: {
@@ -33,15 +33,7 @@ var transporter = nodemailer.createTransport({ //setting email account details
     pass: '39gkjgOJga#)(%@309y3kgb2589rDJLpew'
   }
 });
-**/
-var transporter = nodemailer.createTransport({ //setting email account details
-  host:'debugmail.io',
-  port:25,
-  auth: {
-    user: 'perachatbot@gmail.com',
-    pass: '109c02e0-f94c-11e7-8c0d-e34c4746c3e2'
-  }
-});
+
 
 function verification_code_generate(){
 	var password = generator.generate({
