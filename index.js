@@ -791,6 +791,85 @@ app.post('/', function(request, res){
 
     });
   }
+	
+    /*
+      =============================================================================
+      Actions used to Query Timetables bu saying before or After
+      What do i have before the lunch ?
+      =============================================================================
+  */
+
+  if (action == 'ACTION_QUERY_BY_BEFORE') {
+
+    let facebookID = request.body.originalRequest.data.sender.id;       // facebook id
+
+    var queryDay, queryTime;
+
+    if(request.body.result.parameters.date){
+      queryDay = moment(request.body.result.parameters.date).format('dddd');
+    }else {
+      queryDay = moment(new Date()).format('dddd');
+    }
+
+    if(request.body.result.parameters.time){
+      queryTime = request.body.result.parameters.date);
+    }else if (request.body.result.parameters.intervals) {
+      queryTime = request.body.result.parameters.intervals);
+    }else {
+
+    }
+
+    queryByBefore(facebookID, queryDay, queryTime, function (err, data) {
+
+      if(!err){
+          res.send(JSON.stringify(data))
+      }else {
+        if(err == 'NOT_REGISTERED'){
+          res.send(JSON.stringify(registerNow))
+        }else {
+          res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
+        }
+      }
+
+    })
+
+  }
+
+  if (action == 'ACTION_QUERY_BY_AFTER') {
+
+    let facebookID = request.body.originalRequest.data.sender.id;       // facebook id
+
+    var queryDay, queryTime;
+
+    if(request.body.result.parameters.date){
+      queryDay = moment(request.body.result.parameters.date).format('dddd');
+    }else {
+      queryDay = moment(new Date()).format('dddd');
+    }
+
+    if(request.body.result.parameters.time){
+      queryTime = request.body.result.parameters.date);
+    }else if (request.body.result.parameters.intervals) {
+      queryTime = request.body.result.parameters.intervals);
+    }else {
+
+    }
+
+    queryByAfter(facebookID, queryDay, queryTime, function (err, data) {
+
+      if(!err){
+          res.send(JSON.stringify(data))
+      }else {
+        if(err == 'NOT_REGISTERED'){
+          res.send(JSON.stringify(registerNow))
+        }else {
+          res.send(JSON.stringify({'messages': [{"type": 0, "speech": err}]}))
+        }
+      }
+
+    })
+
+  }	
 
   /*
       =============================================================================
@@ -1802,6 +1881,158 @@ client.query(query, function(err, result) {
   }
 });
 
+}
+
+//function to query the DB by before  e.g -> What do i have before 2pm ?
+function queryByBefore(facebookId, date, time, callback){
+
+  console.log('======= Query By Before =========');
+  console.log('time = ' + time + " date = " + date);
+
+  //console.log(facebookID);
+  // get eNumber with facebookID
+  let query = `Select registrationnumber FROM table_user_map_chatclients WHERE facebookid='${facebookId}';`;
+
+  var error;
+
+  var data = {}          // empty Object
+  var key = 'messages';
+  data[key] = [];       // empty Array, which you can push() values into
+
+  client.query(query, function(err, result) {
+    if (!err && result.rows.length > 0){
+      // If no Error get eNumber and query studentInfotable
+      let eNumber = result.rows[0].registrationnumber;
+      console.log('eNumber = ' + eNumber);
+      query = `Select fieldofstudy, semester FROM table_user_student_feels WHERE registrationnumber='${eNumber}';`;
+
+      client.query(query, function(err, result) {
+        if (!err && result.rows.length > 0){
+          // If no Error get fieldOfStudy, Semester and query the respective table
+          let fieldOfStudy = result.rows[0].fieldofstudy;
+          let semester = result.rows[0].semester;
+          table_to_query = MAP_SEMESTER_TO_DB[semester-1];   // Since indexing is done from 0
+          console.log('table to Query = ' + table_to_query);
+
+          query = `Select * FROM ${table_to_query} WHERE timetabledate='${date}' AND endtime<='${time}' ORDER BY starttime;`;
+
+          client.query(query, function(err, result) {
+
+            if(!err && result.rows.length > 0){
+
+            var firstMsg = {type : 0, speech : `You have,`}
+            data[key].push(firstMsg)
+
+            for (var i = 0; i < result.rows.length; i++) {
+
+              let cousreID = result.rows[i].courseid;
+              // format the time into Am, Pm format
+              let startTime = moment(result.rows[i].starttime, "HH:mm:ss").format('hh:mm A');
+              let endTime = moment(result.rows[i].endtime, "HH:mm:ss").format('hh:mm A');
+
+              let msg = `*${cousreID}*\n_${startTime}_ - _${endTime}_`;
+              var course = {type : 0, speech : msg};
+
+              data[key].push(course);
+            }
+
+            callback(error, data);
+
+            }else {
+              let timeAsked = moment(time, "HH:mm:ss").format('hh:mm A');
+              error = err || `You don't have anything before ${timeAsked} on ${date}`;
+              callback(error, data);
+            }
+          });
+
+        }else {
+          error = err || `Seems like you're not an Efac student`;
+          callback(error, data);
+        }
+      });
+
+    }else {
+      error = err || 'NOT_REGISTERED';
+      callback(error, data);
+    }
+
+  });
+}
+
+//function to query the DB by before  e.g -> What do i have after 2pm ?
+function queryByAfter(facebookId, date, time, callback){
+
+  console.log('======= Query By After =========');
+  console.log('time = ' + time + " date = " + date);
+
+  //console.log(facebookID);
+  // get eNumber with facebookID
+  let query = `Select registrationnumber FROM table_user_map_chatclients WHERE facebookid='${facebookId}';`;
+
+  var error;
+
+  var data = {}          // empty Object
+  var key = 'messages';
+  data[key] = [];       // empty Array, which you can push() values into
+
+  client.query(query, function(err, result) {
+    if (!err && result.rows.length > 0){
+      // If no Error get eNumber and query studentInfotable
+      let eNumber = result.rows[0].registrationnumber;
+      console.log('eNumber = ' + eNumber);
+      query = `Select fieldofstudy, semester FROM table_user_student_feels WHERE registrationnumber='${eNumber}';`;
+
+      client.query(query, function(err, result) {
+        if (!err && result.rows.length > 0){
+          // If no Error get fieldOfStudy, Semester and query the respective table
+          let fieldOfStudy = result.rows[0].fieldofstudy;
+          let semester = result.rows[0].semester;
+          table_to_query = MAP_SEMESTER_TO_DB[semester-1];   // Since indexing is done from 0
+          console.log('table to Query = ' + table_to_query);
+
+          query = `Select * FROM ${table_to_query} WHERE timetabledate='${date}' AND starttime<='${time}' ORDER BY starttime;`;
+
+          client.query(query, function(err, result) {
+
+            if (!err && result.rows.length > 0){
+              // If no Error get courseId, startTime, endTime and send back to the user
+              var firstMsg = {type : 0, speech : `You have,`}
+              data[key].push(firstMsg)
+
+              for (var i = 0; i < result.rows.length; i++) {
+
+                let cousreID = result.rows[i].courseid;
+                // format the time into Am, Pm format
+                let startTime = moment(result.rows[i].starttime, "HH:mm:ss").format('hh:mm A');
+                let endTime = moment(result.rows[i].endtime, "HH:mm:ss").format('hh:mm A');
+
+                let msg = `*${cousreID}*\n_${startTime}_ - _${endTime}_`;
+                var course = {type : 0, speech : msg};
+
+                data[key].push(course);
+              }
+
+              callback(error, data);
+
+            }else {
+              let timeAsked = moment(time, "HH:mm:ss").format('hh:mm A');
+              error = err || `You don't have anything after ${timeAsked} on ${date}`;
+              callback(error, data);
+            }
+          });
+
+        }else {
+          error = err || `Seems like you're not an Efac student`;
+          callback(error, data);
+        }
+      });
+
+    }else {
+      error = err || 'NOT_REGISTERED';
+      callback(error, data);
+    }
+
+  });
 }
 
 
