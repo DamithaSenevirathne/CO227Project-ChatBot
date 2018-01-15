@@ -812,7 +812,7 @@ app.post('/', function(request, res){
     }
 
     if(request.body.result.parameters.time){
-      queryTime = request.body.result.parameters.date;
+      queryTime = request.body.result.parameters.time;
     }else if (request.body.result.parameters.intervals) {
       queryTime = request.body.result.parameters.intervals;
     }else {
@@ -848,7 +848,7 @@ app.post('/', function(request, res){
     }
 
     if(request.body.result.parameters.time){
-      queryTime = request.body.result.parameters.date;
+      queryTime = request.body.result.parameters.time;
     }else if (request.body.result.parameters.intervals) {
       queryTime = request.body.result.parameters.intervals;
     }else {
@@ -1990,7 +1990,7 @@ function queryByAfter(facebookId, date, time, callback){
           table_to_query = MAP_SEMESTER_TO_DB[semester-1];   // Since indexing is done from 0
           console.log('table to Query = ' + table_to_query);
 
-          query = `Select * FROM ${table_to_query} WHERE timetabledate='${date}' AND starttime<='${time}' ORDER BY starttime;`;
+          query = `Select * FROM ${table_to_query} WHERE timetabledate='${date}' AND starttime>='${time}' ORDER BY starttime;`;
 
           client.query(query, function(err, result) {
 
