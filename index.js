@@ -812,9 +812,9 @@ app.post('/', function(request, res){
     }
 
     if(request.body.result.parameters.time){
-      queryTime = request.body.result.parameters.date);
+      queryTime = request.body.result.parameters.date;
     }else if (request.body.result.parameters.intervals) {
-      queryTime = request.body.result.parameters.intervals);
+      queryTime = request.body.result.parameters.intervals;
     }else {
 
     }
@@ -848,9 +848,9 @@ app.post('/', function(request, res){
     }
 
     if(request.body.result.parameters.time){
-      queryTime = request.body.result.parameters.date);
+      queryTime = request.body.result.parameters.date;
     }else if (request.body.result.parameters.intervals) {
-      queryTime = request.body.result.parameters.intervals);
+      queryTime = request.body.result.parameters.intervals;
     }else {
 
     }
