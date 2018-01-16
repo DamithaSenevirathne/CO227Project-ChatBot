@@ -263,7 +263,7 @@ function db_query_select_verification_code(confirmed_regnumber,chatting_client,v
 										  replace(/T/, ' ').      // replace T with a space
 										  replace(/\..+/, '');     // delete the dot and everything after;
 
-				  let query = `insert into table_user_map_chatClients(registrationnumber, facebooid, whatsappid, viberid, twitterid) values('${confirmed_regnumber}','${client_id}','NONE','NONE','NONE');`;
+				  let query = `insert into table_user_map_chatClients(registrationnumber, facebookid, whatsappid, viberid, twitterid) values('${confirmed_regnumber}','${client_id}','NONE','NONE','NONE');`;
 				  var error, data;
 
 				  client.query(query, function(err, result) {
