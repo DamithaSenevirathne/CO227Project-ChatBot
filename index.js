@@ -56,7 +56,7 @@ function get_mail_send_verification(email_to,verification_code){
 	  from: 'perachatbot@gmail@gmail.com',
 	  to: email_to,
 	  subject: 'PeraInfoBot - Facebook Verification!',
-	  text: 'Please click this link to verify your request : '+serverPath+'/verify-facebook?regno='+current_registrationnumber+'&client=facebook&verification_code='+verification_code+'&client_id='+current_facebook_id
+	  text: 'Please click this link to verify your request : '+serverPath+'verify-facebook?regno='+current_registrationnumber+'&client=facebook&verification_code='+verification_code+'&client_id='+current_facebook_id
 	};
 	return mail_send_verification;
 }
